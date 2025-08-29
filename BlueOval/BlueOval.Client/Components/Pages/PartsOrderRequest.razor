@@ -1,0 +1,1204 @@
+﻿@page "/PartsOrderRequest"
+@attribute [Authorize] 
+
+
+@using ClosedXML.Excel
+
+@using ClosedXML.Excel.Drawings
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@using System.Security.Claims
+
+
+@inject HttpClient Http
+
+@inject DapperContextApi sqlService;
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+
+
+<style>
+    .selected {
+        background-color: #1E88E5 !important;
+    }
+
+        .selected > td {
+            color: white !important;
+        }
+
+            .selected > td .mud-input {
+                color: white !important;
+            }
+
+</style>
+
+<PageTitle>Parts Order Request</PageTitle>
+@if(!bHasPermission)
+{
+    <MudText Typo="Typo.h5" Class="m-3 pa-4" Color="Color.Error">You do not have permission to access this page.</MudText>
+    return;
+}
+
+<MudGrid Class="pa-4 gap-2 align-center">
+    <MudItem>
+        <MudText Typo="Typo.h5" Class="ml-3" Color="Color.Success">Order Request</MudText>
+    </MudItem>
+
+  
+    @if (bReport)
+    {
+        <MudItem>
+            <MudProgressCircular Color="Color.Success" Style="height:50px;width:50px;" Indeterminate="true" />
+        </MudItem>
+    }
+</MudGrid>
+
+
+
+<MudSpacer />
+<EditForm Model="@orderModel" OnValidSubmit="HandleAddNewOrder">
+    <DataAnnotationsValidator />
+    <MudGrid Class="d-flex flex-wrap  pa-4 gap-0 align-content-start">
+       
+        <MudItem xs="6" sm="4" md="3" lg="2" Class="align-center justify-center mud-width-full mt-n4">
+            <MudSelect T="string" Label="Select Installer *" Variant="Variant.Outlined" Dense="true"
+                       @bind-Value="orderModel.Installer"
+                       For="@(() => orderModel.Installer)" AnchorOrigin="Origin.BottomLeft">
+
+                <MudSelectItem T="string" Value="@($"GK")" />
+                <MudSelectItem T="string" Value="@($"CCC")" />
+               
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="6" sm="4" md="3" lg="2" Class="align-center justify-center mud-width-full mt-n4">
+            <MudTextField Label="Installer Contact" Variant="Variant.Outlined"
+                          @bind-Value="orderModel.InstallerContact" For="@(() => orderModel.InstallerContact)" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="3" lg="2" Class="align-center justify-center mud-width-full mt-n4">
+            <MudTextField Label="Installer Phone Number" Variant="Variant.Outlined"
+                          @bind-Value="orderModel.InstallerPhone" For="@(() => orderModel.InstallerPhone)" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="3" lg="2" Class="align-center justify-center mud-width-full mt-n4">
+            <MudTextField Label="Requestor *" Variant="Variant.Outlined"
+                          @bind-Value="orderModel.Requestor" For="@(() => orderModel.Requestor)" />
+        </MudItem>
+
+        <MudItem xs="6" sm="4" md="3" lg="2" Class="align-center justify-center mud-width-full mt-n4">
+            <MudDatePicker Label="Delivery Date *" Variant="Variant.Outlined"  PickerMonth="@iniDate"
+                @bind-Date="orderModel.DeliveryDate" For="@(() => orderModel.DeliveryDate)" 
+                />                        
+                 @* IsDateDisabledFunc="@((DateTime dt)=>(dt < DateTime.Now.Date.AddDays(2)))" *@
+        </MudItem>
+
+      
+
+        <MudItem xs="6" sm="4" md="3" lg="2" Class="align-center justify-center mud-width-full mt-n4">
+            <MudSelect T="string" Label="Delivery Time *" Variant="Variant.Outlined" Dense="true"
+                       @bind-Value="orderModel.DeliveryTime"
+                       For="@(() => orderModel.DeliveryTime)" AnchorOrigin="Origin.BottomLeft">
+
+                <MudSelectItem T="string" Value="@($"8AM-10AM")" />
+                <MudSelectItem T="string" Value="@($"10AM-12PM")" />
+                <MudSelectItem T="string" Value="@($"12PM-2PM")" />
+                <MudSelectItem T="string" Value="@($"2PM-4PM")" />
+                <MudSelectItem T="string" Value="@($"4PM-6PM")" />
+                <MudSelectItem T="string" Value="@($"6PM-8PM")" />
+                <MudSelectItem T="string" Value="@($"8PM-10PM")" />
+                <MudSelectItem T="string" Value="@($"10PM-12AM")" />
+                <MudSelectItem T="string" Value="@($"12AM-2AM")" />
+               
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="3" lg="2" Class="align-center justify-center mud-width-full mt-n4">
+            <MudAutocomplete T="string" Label="Dock Code *" SearchFunc="@SearchDock" MaxItems="40"
+                             ResetValueOnEmptyText="true" Variant="Variant.Outlined"
+                             @bind-Value="orderModel.DockDoor" 
+                             For="@(() => orderModel.DockDoor)"
+                             CoerceText="false" CoerceValue="true" />
+
+            @*   <MudSelect T="string" Label="Dock Code *" Variant="Variant.Outlined" Dense="true"
+                       @bind-Value="orderModel.DockDoor"
+                       For="@(() => orderModel.DockDoor)" AnchorOrigin="Origin.BottomLeft">
+
+                <MudSelectItem T="string" Value="@($"A5")" />
+                <MudSelectItem T="string" Value="@($"A11")" />
+                <MudSelectItem T="string" Value="@($"A13")" />
+                <MudSelectItem T="string" Value="@($"A20")" />
+                <MudSelectItem T="string" Value="@($"A26")" />
+                <MudSelectItem T="string" Value="@($"A28")" />
+                <MudSelectItem T="string" Value="@($"A35")" />
+                <MudSelectItem T="string" Value="@($"A45")" />
+                <MudSelectItem T="string" Value="@($"A50")" />
+                <MudSelectItem T="string" Value="@($"A54")" />
+                <MudSelectItem T="string" Value="@($"A56")" />
+                <MudSelectItem T="string" Value="@($"A60")" />
+                <MudSelectItem T="string" Value="@($"A64")" />
+                <MudSelectItem T="string" Value="@($"A69")" />
+                <MudSelectItem T="string" Value="@($"A74")" />
+                <MudSelectItem T="string" Value="@($"A81")" />
+                <MudSelectItem T="string" Value="@($"A85")" />
+                <MudSelectItem T="string" Value="@($"L1QA")" />
+                <MudSelectItem T="string" Value="@($"Mezz A1")" />
+                <MudSelectItem T="string" Value="@($"Mezz A4")" />
+                <MudSelectItem T="string" Value="@($"Mezz A15")" />
+                <MudSelectItem T="string" Value="@($"Mezz A17")" />
+                <MudSelectItem T="string" Value="@($"Mezz A20")" />
+                <MudSelectItem T="string" Value="@($"Mezz A55")" />
+                <MudSelectItem T="string" Value="@($"Mezz A71")" />
+                <MudSelectItem T="string" Value="@($"Mezz A82")" />
+                   
+               
+            </MudSelect> *@
+
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudGrid >
+                <MudItem>
+                     <MudText Typo="Typo.h6" Class="ml-3" Color="Color.Tertiary">Filter Types</MudText>
+                    <MudButton Variant="Variant.Outlined" Class="ml-1" Size="Size.Small"
+                               EndIcon="@Icons.Material.Filled.Clear" Color="Color.Tertiary"
+                               OnClick="@ClearFilters">Clear All</MudButton>
+                </MudItem>
+                <MudItem>
+                    <MudText Typo="Typo.subtitle2">Pallet # / Box #</MudText>
+                    <div style="width: 250px;">
+                        @* Fixed width container *@
+                        <MudTextField @bind-Value="palletBoxFilter"
+                                      Placeholder="Pallet Filter..." Variant="Variant.Text" Margin="Margin.Dense" Clearable="true"
+                                      DebounceInterval="300" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnClearButtonClick="@ClearPalletBoxFilter" />
+                    </div>
+                </MudItem>
+                <MudItem>
+                    <MudText Typo="Typo.subtitle2">Equipment Op #</MudText>
+                    <div style="width: 250px;">
+                        <MudTextField @bind-Value="equipmentOpFilter"
+                                      Placeholder="Equipment Op# Filter..." Variant="Variant.Text" Margin="Margin.Dense" Clearable="true"
+                                      DebounceInterval="300" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnClearButtonClick="@ClearEquipmentOpFilter" />
+                    </div>
+                </MudItem>
+                <MudItem>
+                    <MudText Typo="Typo.subtitle2">Section / Component</MudText>
+                    <div style="width: 250px;">
+                        <MudTextField @bind-Value="sectionCompFilter"
+                                      Placeholder="Section/Comp Filter..." Variant="Variant.Text" Margin="Margin.Dense" Clearable="true"
+                                      DebounceInterval="300" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnClearButtonClick="@ClearSectionCompFilter" />
+                    </div>
+                </MudItem>
+                <MudItem>
+                    <MudText Typo="Typo.subtitle2">Process Equipment</MudText>
+                    <div style="width: 250px;">
+                        <MudTextField @bind-Value="processEquipFilter"
+                                      Placeholder="Process Equip Filter..." Variant="Variant.Text" Margin="Margin.Dense" Clearable="true"
+                                      DebounceInterval="300" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnClearButtonClick="@ClearProcessEquipFilter" />
+                    </div>
+                </MudItem>
+                <MudItem>
+                    <MudText Typo="Typo.subtitle2">Section / Component Name</MudText>
+                    <div style="width: 250px;">
+                        <MudTextField @bind-Value="sectionCompNameFilter"
+                                      Placeholder="Section/Comp Name Filter..." Variant="Variant.Text" Margin="Margin.Dense" Clearable="true"
+                                      DebounceInterval="300" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      OnClearButtonClick="@ClearSectionCompNameFilter" />
+                    </div>
+                </MudItem>
+           </MudGrid>
+        </MudItem>
+
+        <MudItem xs="12">
+               
+                    <MudText Typo="Typo.h6" Class="ml-3" >Pallets Information</MudText>
+        
+                    <MudTable Items="@CyclePartsList" T="PartCycle"
+                              Height="450px" FixedHeader="true" 
+                              Outlined="true" Elevation="1"
+                              Dense="true" Hover="true" Bordered="true" Striped="true">
+
+
+
+                        <HeaderContent>
+                            <MudTh>Select Conatiner</MudTh>
+                            <MudTh>Select Pallet</MudTh>
+                            <MudTh>Container #</MudTh>
+                            <MudTh>Container QR Code</MudTh>
+                            <MudTh>Pallet/Box QR Code </MudTh>
+                            <MudTh Style="min-width:280px;">Pallet # / Box #  </MudTh>
+
+                            <MudTh Style="min-width:200px;">Equipment Op # </MudTh>
+                            <MudTh Style="min-width:300px;">Section / Component </MudTh>
+                            <MudTh Style="min-width:300px;">Process Equipment</MudTh>
+                            <MudTh >Section / Component Name</MudTh>
+
+                            <MudTh>WHSE/SITE</MudTh>
+                         </HeaderContent>
+
+                        <RowTemplate Context="rowContext">
+                        @if (rowContext.IsPalletAlreadyOrdered)
+                        {
+                            <MudTd Class="mud-text-error" Style="color:red;"></MudTd>
+                            <MudTd Class="mud-text-error" Style="color:red;">ORDERED</MudTd>
+                        }
+                        else
+                        {
+
+                            <MudTd>
+                                <MudCheckBox T="bool" Value="@rowContext.IsContainerSelected" Label="Container" ValueChanged="@(async (v) => await HandleCheckedChanged(@rowContext, v))"></MudCheckBox>
+                            </MudTd>
+                            <MudTd>
+                                <MudCheckBox T="bool" Value="@rowContext.IsPalletSelected" Label="Pallet/Box" ValueChanged="@(async (v) => await HandleCheckedChangedP(@rowContext, v))"></MudCheckBox>
+                                @* <MudCheckBox @bind-Value="@rowContext.IsPalletSelected" Label="Pallet/Box"></MudCheckBox> *@
+                            </MudTd>
+                        }
+                            <MudTd>@rowContext.ContainerNo</MudTd>
+                            <MudTd>@rowContext.ContainerQRCode</MudTd>
+                            <MudTd>@rowContext.PalletQRCode</MudTd>
+                            <MudTd>@rowContext.PalletNo</MudTd>
+                            <MudTd>@rowContext.EquipmentOp</MudTd>
+                            <MudTd>@rowContext.SectionComp</MudTd>
+                            <MudTd>@rowContext.ProcessEquip</MudTd>
+                            <MudTd>@rowContext.SectionCompName</MudTd>
+                            <MudTd>@rowContext.WhseSite</MudTd>
+                           </RowTemplate>
+
+                    </MudTable>
+                
+ 
+
+        </MudItem>
+        <MudSpacer/>
+        <MudItem xs="12" Class="align-center justify-center mud-width-full mt-n4">
+            <MudSpacer />
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                       Disabled="@DisableSubmit()"
+                       Color="Color.Primary" Class="ml-auto mr-3">Submmit The Order</MudButton>
+           
+            @if (isSubmitting)
+            {
+                <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-17" />
+            }
+        </MudItem>
+
+
+
+    </MudGrid>
+</EditForm>
+
+
+
+
+
+@code {
+    private List<PartCycle> _allPalletData = new List<PartCycle>();
+
+    private void ClearFilters()
+    {
+        _palletBoxFilter = string.Empty;
+        _equipmentOpFilter = string.Empty;
+        _sectionCompFilter = string.Empty;
+        _processEquipFilter = string.Empty;
+        _sectionCompNameFilter = string.Empty;
+        CyclePartsList = _allPalletData;
+    }
+
+    private string _palletBoxFilter = string.Empty;
+    public string palletBoxFilter  
+    {
+        get => _palletBoxFilter;
+        set 
+        {
+            var oldValue = _palletBoxFilter;
+            _palletBoxFilter = value;
+            if(oldValue != _palletBoxFilter)
+            {
+                ApplyFilters(); // Apply the filter whenever the value changes
+            }
+        }
+
+    }
+    private void ClearPalletBoxFilter()
+    {
+        _palletBoxFilter = string.Empty;
+        CyclePartsList = _allPalletData; // Reset the list to the original data
+        StateHasChanged(); // Notify Blazor to re-render the component with the filtered data
+
+    }
+
+    private string _equipmentOpFilter = string.Empty;
+    public string equipmentOpFilter
+    {
+        get => _equipmentOpFilter;
+        set
+        {
+            var oldValue = _equipmentOpFilter;
+            _equipmentOpFilter = value;
+            if (oldValue != _equipmentOpFilter)
+            {
+                ApplyFilters(); // Apply the filter whenever the value changes
+            }
+        }
+
+    }
+    private void ClearEquipmentOpFilter()
+    {
+        _equipmentOpFilter = string.Empty;
+        CyclePartsList = _allPalletData; // Reset the list to the original data
+        StateHasChanged(); // Notify Blazor to re-render the component with the filtered data
+
+    }
+
+    private string _sectionCompFilter = string.Empty;
+    public string sectionCompFilter
+    {
+        get => _sectionCompFilter;
+        set
+        {
+            var oldValue = _sectionCompFilter;
+            _sectionCompFilter = value;
+            if (oldValue != _sectionCompFilter)
+            {
+                ApplyFilters(); // Apply the filter whenever the value changes
+            }
+        }
+
+    }
+    private void ClearSectionCompFilter()
+    {
+        _sectionCompFilter = string.Empty;
+        CyclePartsList = _allPalletData; // Reset the list to the original data
+        StateHasChanged(); // Notify Blazor to re-render the component with the filtered data
+
+    }
+
+    private string _processEquipFilter = string.Empty;
+    public string processEquipFilter
+    {
+        get => _processEquipFilter;
+        set
+        {
+            var oldValue = _processEquipFilter;
+            _processEquipFilter = value;
+            if (oldValue != _processEquipFilter)
+            {
+                ApplyFilters(); // Apply the filter whenever the value changes
+            }
+        }
+
+    }
+    private void ClearProcessEquipFilter()
+    {
+        _processEquipFilter = string.Empty;
+        CyclePartsList = _allPalletData; // Reset the list to the original data
+        StateHasChanged(); // Notify Blazor to re-render the component with the filtered data
+
+    }
+
+    private string _sectionCompNameFilter = string.Empty;
+    public string sectionCompNameFilter
+    {
+        get => _sectionCompNameFilter;
+        set
+        {
+            var oldValue = _sectionCompNameFilter;
+            _sectionCompNameFilter = value;
+            if (oldValue != _sectionCompNameFilter)
+            {
+                ApplyFilters(); // Apply the filter whenever the value changes
+            }
+        }
+
+    }
+    private void ClearSectionCompNameFilter()
+    {
+        _sectionCompNameFilter = string.Empty;
+        CyclePartsList = _allPalletData; // Reset the list to the original data
+        StateHasChanged(); // Notify Blazor to re-render the component with the filtered data
+
+    }
+    private void FilterData(KeyboardEventArgs e)
+    {
+        // This method will be called on each key up event for the filter input.
+        // You might want to debounce this in a real application to avoid excessive re-renders.
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        if (string.IsNullOrWhiteSpace(_palletBoxFilter) 
+          && string.IsNullOrWhiteSpace(_equipmentOpFilter)
+          && string.IsNullOrWhiteSpace (_sectionCompFilter)
+          && string.IsNullOrWhiteSpace(_processEquipFilter )
+          && string.IsNullOrWhiteSpace(_sectionCompNameFilter ))
+        {
+            CyclePartsList = _allPalletData;
+        }
+        else
+        {
+            CyclePartsList = _allPalletData;
+            if(!string.IsNullOrWhiteSpace(_palletBoxFilter))
+            {
+                CyclePartsList = CyclePartsList
+                    .Where(p => p.PalletNo != null && p.PalletNo.Contains(_palletBoxFilter, StringComparison.OrdinalIgnoreCase)
+                     || p.IsContainerSelected || p.IsPalletSelected)
+                    .ToList();
+            };
+            if(!string.IsNullOrWhiteSpace(_equipmentOpFilter))
+            {
+                CyclePartsList = CyclePartsList
+                    .Where(p => p.EquipmentOp != null && p.EquipmentOp.Contains(_equipmentOpFilter, StringComparison.OrdinalIgnoreCase)
+                     || p.IsContainerSelected || p.IsPalletSelected)
+                    .ToList();
+            }
+            if(!string.IsNullOrWhiteSpace(_sectionCompFilter))
+            {
+                CyclePartsList = CyclePartsList
+                    .Where(p => p.SectionComp != null && p.SectionComp.Contains(_sectionCompFilter, StringComparison.OrdinalIgnoreCase)
+                     || p.IsContainerSelected || p.IsPalletSelected)
+                    .ToList();
+            }
+            if(!string.IsNullOrWhiteSpace(_processEquipFilter))
+            {
+                CyclePartsList = CyclePartsList
+                    .Where(p => p.ProcessEquip != null && p.ProcessEquip.Contains(_processEquipFilter, StringComparison.OrdinalIgnoreCase)
+                     || p.IsContainerSelected || p.IsPalletSelected)
+                    .ToList();
+            }
+            if(!string.IsNullOrWhiteSpace(_sectionCompNameFilter))
+            {
+                CyclePartsList = CyclePartsList
+                    .Where(p => p.SectionCompName != null && p.SectionCompName.Contains(_sectionCompNameFilter, StringComparison.OrdinalIgnoreCase)
+                     || p.IsContainerSelected || p.IsPalletSelected)
+                    .ToList();
+            }
+        }
+        StateHasChanged(); // Notify Blazor to re-render the component with the filtered data
+    }
+
+    private DateTime iniDate = DateTime.Now.Date.AddDays(2);
+    private void SetItemSelected()
+    {
+        foreach (var item in CyclePartsList)
+        {
+            if(item.IsContainerSelected || item.IsPalletSelected)
+            {
+                IsSelectedItem = true;
+                return;
+            }
+        }
+        IsSelectedItem = false;
+    }
+    private async Task HandleCheckedChanged(PartCycle item, bool value)
+    {
+        if (value)      //check the pallet is ordered or not
+        {
+            bool isOrdered = await sqlService.IsPalletOrdered(item.PalletQRCode);
+            if (isOrdered)
+            {
+                item.IsPalletAlreadyOrdered = true;
+                item.IsPalletSelected = false;
+                item.IsContainerSelected = false;
+
+                StateHasChanged();
+                Snackbar.Add($"Pallet/Box [{item.PalletNo}] is already ordered, can not be selected again!", Severity.Error);
+                return;
+            }
+            foreach (var cycle in CyclePartsList)
+            {
+                if (cycle == item)
+                {
+                    continue;
+                }
+                if (cycle.ContainerNo == item.ContainerNo)
+                {
+                    isOrdered = await sqlService.IsPalletOrdered(cycle.PalletQRCode);
+                    if (isOrdered)
+                    {
+                        cycle.IsPalletAlreadyOrdered = true;
+                        cycle.IsPalletSelected = false;
+                        cycle.IsContainerSelected = false;
+
+                        StateHasChanged();
+
+                        Snackbar.Add($"Pallet/Box [{item.PalletNo}] is already ordered, can not be selected again!", Severity.Error);
+                        return;
+                    }
+                }
+            }
+        }
+        //bool value = item.IsContainerSelected;
+        item.IsContainerSelected = value; // Toggle the selection status
+        //item.IsContainerSelected = newStatus;
+        // Process the item as needed (e.g., update database, trigger logic)
+        //return true; // Return true to indicate the status was successfully changed
+        foreach (var cycle in CyclePartsList)
+        {
+            if(cycle == item)
+            {
+                continue;
+            }
+            if (cycle.ContainerNo == item.ContainerNo)
+            {
+                cycle.IsContainerSelected = item.IsContainerSelected;
+                StateHasChanged();
+            }
+        }
+        SetItemSelected();
+    }
+
+    private async Task HandleCheckedChangedP(PartCycle item, bool value)
+    {
+        //bool value = item.IsContainerSelected;
+
+        if (value)      //check the pallet is ordered or not
+        {
+            bool isOrdered = await sqlService.IsPalletOrdered(item.PalletQRCode);
+            if (isOrdered)
+            {
+                item.IsPalletAlreadyOrdered = true;
+                item.IsPalletSelected = false;
+                item.IsContainerSelected = false;
+
+                StateHasChanged();
+
+                Snackbar.Add($"Pallet/Box [{item.PalletNo}] is already ordered, can not be selected again!", Severity.Error);
+                return;
+            }
+        }
+
+        item.IsPalletSelected = value; // Toggle the selection status
+
+        SetItemSelected();
+    }
+
+    bool isSubmitting = false;
+    private EquipmentOrderInfo orderModel = new EquipmentOrderInfo();// { DeliveryDate= DateTime.Today};
+
+    private bool DisableSubmitButton => string.IsNullOrEmpty(orderModel.Installer) ||
+                                      string.IsNullOrEmpty(orderModel.Requestor) ||
+                                      orderModel.DeliveryDate is null ||
+                                      orderModel.DeliveryTime is null ||
+                                      string.IsNullOrEmpty(orderModel.DockDoor);
+
+
+    private bool DisableSubmit()
+    {
+
+
+        if (isSubmitting || bReport || IsSelectedItem == false)
+            return true;
+
+        return DisableSubmitButton;
+    }
+    private async Task HandleAddNewOrder()
+    {
+        // Maybe the button is not yet disable, be sure to not reprocess the event in this case
+        if (isSubmitting)
+            return;
+
+        orderModel.CreateTime =  DateTime.Now;
+        orderModel.CreatedBy = userID;
+
+        //check if the order request is valid
+        foreach (var detail in CyclePartsList)
+        {
+            if (detail.IsPalletSelected == false && detail.IsContainerSelected == false)
+                continue; //Skip the details that are not selected
+            bool isOrdered = await sqlService.IsPalletOrdered(detail.PalletQRCode);
+            if (isOrdered)
+            {
+                detail.IsPalletAlreadyOrdered = true;
+                detail.IsPalletSelected = false;
+                detail.IsContainerSelected = false;
+                StateHasChanged();
+
+                Snackbar.Add($"Pallet/Box [{detail.PalletNo}] is already ordered, can not be selected again!", Severity.Error);
+                return;
+            }
+        }
+
+        (bool bSave, int ID) = await sqlService.InsertOrderRequest(orderModel, CyclePartsList);
+        if (!bSave)
+        {
+            Snackbar.Add("Order Request Save Failed!", Severity.Error);
+            return;
+        }
+        await GenerateXlsReport(ID);
+
+        _allPalletData = await sqlService.GetInventoryCycleInfoBatteryForOrder();  
+        _palletBoxFilter = string.Empty;
+        CyclePartsList = _allPalletData; // Reset the list to the original data
+        IsSelectedItem = false;
+        StateHasChanged();
+
+        Snackbar.Add("Order Request Saved!", Severity.Success);
+        /*
+        //Check Part is in System or not, maybe added by other customer
+        var part = await sqlService.GetPartInfo(partModel.InternalPn);
+        if (part != null)
+        {
+            Snackbar.Add("Part Number Is in the System alreay!", Severity.Error);
+            partModel.InternalPn = null;
+            return;
+            }
+
+        IsDisableUnlock = false;
+        isSubmitting = true;
+        StateHasChanged();
+
+        partModel.LineId = sqlService.GetLine(partModel.LineId);// partModel.LineId.Substring(0, 2);
+        bool ret = false; ;
+        try
+        {
+            ret = await sqlService.CreateNewPart(UserName, partModel);
+            if (ret)
+            {
+                Snackbar.Add("The Part Added sucessfully!", Severity.Success);
+                newPartList = await sqlService.GetNewPartInfo();
+                if (newPartList.Count > 0)
+                    IsDisableUnlock = true;
+                }
+            else
+                Snackbar.Add("Add Part Error!", Severity.Error);
+            }
+        finally
+        {
+            isSubmitting = false;
+            }
+
+        selectedItem1 = null;
+        HintsInfo = new();
+        partModel = new();
+
+        //Get the new List again
+        //newPartList = await sqlService.GetNewPartInfo();
+        StateHasChanged();
+
+        */
+    }
+    private string user = "";
+    private string message = "";
+
+    private string? clientId;
+
+    private void OnChatStateChanged()
+    {
+        // Always marshal to the dispatcher****:Do NOT call StateHasChanged() directly in the event handler.Always use InvokeAsync(StateHasChanged) to ensure thread safety
+        //Blazor Server components must update their UI only from the rendering thread.
+        //If a background thread or SignalR event triggers a UI update, you must marshal the call back to the Dispatcher using InvokeAsync.
+        InvokeAsync(StateHasChanged);
+
+        //TO DO: Handle any additional logic when the chat state changes
+        //Add the processing logic here if needed
+    }
+
+    private List<string> notifications = new();
+
+    protected override void OnInitialized()
+    {
+        // Subscribe to notification events (if you implement an event in NotificationService)
+        // NotificationService.OnNotificationReceived += AddNotification;
+    }
+
+    private void AddNotification(string message)
+    {
+        notifications.Add(message);
+        InvokeAsync(StateHasChanged);
+    }
+
+    // private async Task SendMessage()
+    // {
+    //     if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(message))
+    //     {
+    //         await msgService.SendMessageToClients(user, message,user);
+    //         message = "";
+    //     }
+    // }
+
+
+
+    private Task OnReceiveMessage(string msg)
+    {
+        // messages.Add(msg);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+
+
+
+    private async Task OnRowClicked(TableRowClickEventArgs<PartCycleCtrl> args)
+    {
+        // if (LastClickTime.HasValue && (DateTime.Now - LastClickTime.Value).TotalMilliseconds < 500)
+        // {
+        //     Double-click logic
+        //     await HandleDoubleClick(args.Item);
+        //     LastClickTime = null;
+        // }
+        // else
+        {
+            // Single-click logic
+            SelectCycleCtrlProcess(args.Item);
+            //SelectedPartCtrl = args.Item;
+            //LastClickTime = DateTime.Now;
+        }
+    }
+    private MudTable<PartCycleCtrl> mudTable;
+    //private PartCycleCtrl selectedItem1 = null;
+    private int selectedRowNumber = -1;
+    private string SelectedRowClassFunc(PartCycleCtrl element, int rowNumber)
+    {
+        //if (selectedRowNumber == rowNumber)     //Selected Row: None
+        //{
+        //    selectedRowNumber = -1;
+
+        //    return string.Empty;
+        //}
+        //else
+        if (mudTable.SelectedItem != null && mudTable.SelectedItem.Equals(element))    //Selected Row: {rowNumber}
+        {
+            selectedRowNumber = rowNumber;
+
+            return "selected";
+        }
+        else
+        {
+            return string.Empty;
+        }
+    }
+    private string searchString1 = "";
+    private bool FilterFunc1(PartCycleCtrl element) => FilterFunc(element, searchString1);
+    private bool FilterFunc(PartCycleCtrl element, string searchString)
+    {
+        return true;
+    }
+
+    bool IsSelectedItem = false;
+    public List<PartCycle> CyclePartsList{ get; set; }
+
+    PartCycleCtrl? SelectedPartCtrl { get; set; } = new PartCycleCtrl();
+
+
+
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthenticationStateTask { get; set; }
+    int userID = 0;
+    string userName = "";
+    private bool bHasPermission = true;
+
+    protected override async Task OnInitializedAsync()  
+    {
+        if (AuthenticationStateTask != null)
+        {
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+            if (user.Identity != null && user.Identity.IsAuthenticated)
+            {
+                //First get user claims
+                var claims = user.Identities.First().Claims.ToList();
+
+                //Filter specific claim
+                var EmployeeID = claims?.FirstOrDefault(x => x.Type.Equals("EmployeeID", StringComparison.OrdinalIgnoreCase))?.Value;
+                if (EmployeeID == null)
+                {
+                    userID = 0;
+                    bHasPermission = false;
+                }
+                else
+                {
+                    userID = int.Parse(EmployeeID);
+
+                    bHasPermission = true;// await sqlService.HasPermission(userID);
+                }
+                //Filter specific claim
+                var UserName = claims?.FirstOrDefault(x => x.Type.Equals(ClaimTypes.Name, StringComparison.OrdinalIgnoreCase))?.Value;
+                if (UserName != null)
+                    userName = UserName;
+                else
+                    userName = "";
+            }
+            else
+            {
+                userID = 0;
+                userName = "";
+                bHasPermission = false;
+            }
+
+        }
+        //CyclePartsList = await sqlService.GetInventoryCycleInfoBatteryForOrder();  
+        bReport = true;
+        _allPalletData =  await sqlService.GetInventoryCycleInfoBatteryForOrder();  
+        _palletBoxFilter = string.Empty;
+        CyclePartsList = _allPalletData; // Reset the list to the original data
+        IsSelectedItem = false;
+        bReport = false;
+        //calling StateHasChanged() (directly or indirectly, via an event) from a thread that is not the Blazor rendering thread (the "Dispatcher")
+        //his is common when you update shared state from a SignalR hub or background service.
+        //To fix this, you need to use InvokeAsync to marshal the call back to the Dispatcher.
+        // msgState.OnChange += OnChatStateChanged;
+
+        //HubService.MessageReceived += OnMessageReceived;
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    { 
+        if (firstRender)
+        {
+            try
+            {
+                // This code will run twice for firstRender=true:
+                // 1. Once on the server during prerendering (this JS call will be ignored by Blazor or fail silently)
+                // 2. Once on the client after the SignalR circuit is established and the component is hydrated.
+                // It's the client-side execution where the JavaScript interop *will* succeed.
+                // 1. Generate a new GUID in C#
+                string newDotNetClientId = Guid.NewGuid().ToString();
+
+                string clientId = await JS.InvokeAsync<string>("getOrCreateClientId",newDotNetClientId);
+
+
+
+                // If you need to trigger a UI update based on the client ID, call StateHasChanged() here
+                // StateHasChanged();
+            }
+            catch (JSDisconnectedException ex)
+            {
+                // This exception can occur if the Blazor circuit is disconnected
+                // (e.g., user navigates away) before the JS interop call completes.
+                // For a one-time setup call like this, it's often safe to ignore.
+                //Console.WriteLine($"Blazor: JSDisconnectedException during JS interop: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                // Log any other unexpected errors during JS interop
+                //Console.Error.WriteLine($"Blazor: Generic Exception during JS interop: {ex.Message}"); // This should catch any .NET errors
+            }
+
+
+            // JS interop calls are safe here
+
+            //clientId = await JS.InvokeAsync<string>("getOrCreateClientId");
+            // Register the clientId with the server-side circuit
+            /// await CircuitHandlers.RegisterClientIdAsync(clientId!);
+
+            // Register clientId with the hub
+            ////await HubContext.Clients.All.SendAsync("RegisterClient", clientId);
+
+            // Subscribe to state changes for real-time updates
+            //msgState.OnChange += OnChatStateChanged;// StateHasChanged;
+            // Initialize data or call server after JS interop
+            // await LoadDataAsync();
+            //StateHasChanged(); // Trigger UI update
+
+            // Ensure NotificationService has an event or method to subscribe to
+            //NotificationService.OnNotificationReceived += AddNotification;
+        }
+    }
+
+    void SelectCycleCtrlProcess(PartCycleCtrl cycleCtrl)
+    {
+        // if(cycleCtrl != SelectedPartCtrl)
+        {
+            SelectedPartCtrl = cycleCtrl;
+            //CurrentCyclePartsList = CyclePartsList.GetRange(SelectedPartCtrl.IndexS, SelectedPartCtrl.IndexD - SelectedPartCtrl.IndexS + 1);
+        }
+    }
+
+    void ShippedClicked(PartCycle part, object checkedValue)
+    {
+        if ((bool)checkedValue)
+        {
+            part.IsShipped = true;
+            SelectedPartCtrl.CycleBinQtySum -= part.BinQty;
+            SelectedPartCtrl.CyclePartQtySum -= part.PartQty;
+
+            SelectedPartCtrl.IsCountModified = true;
+        }
+        else
+        {
+            part.IsShipped = false;
+            SelectedPartCtrl.CycleBinQtySum += part.BinQty;
+            SelectedPartCtrl.CyclePartQtySum += part.PartQty;
+
+            SelectedPartCtrl.SetCountModified(CyclePartsList);
+        }
+
+    }
+
+    bool bReport = true;
+    private async Task GenerateXlsReport(int ID)
+    {
+        //  CyclePartsList = await sqlService.GetInventoryCycleInfoBatteryForOrder();
+
+        if (CyclePartsList is null || CyclePartsList.Count  == 0)
+            return;
+
+        if (bReport)
+            return;
+
+
+
+
+        bReport = true;
+        StateHasChanged();
+        IXLWorkbook wb = new XLWorkbook();
+        IXLWorksheet ws = wb.Worksheets.Add("Order Request");
+        ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
+        ws.PageSetup.Margins.Header = 0.3; // Specific margin for Header
+        // Set up the header
+        ws.PageSetup.Header.Left.AddText(orderModel.CreateTime.ToString("MMMM-dd-yyyy HH:mm"));
+        var title = ws.PageSetup.Header.Center.AddText("ORDER REQUEST FORM");
+        title.SetFontSize(12).SetBold();
+        ws.PageSetup.Header.Right.AddText("Page &P of &N"); // Page number and total pages
+
+        // Enable scale-to-fit to prevent content from overlapping with the footer
+        ws.PageSetup.ScaleHFWithDocument = true;
+        ws.PageSetup.FitToPages(1, 0); // Fit to width, auto-adjust height
+
+
+        // Protect the worksheet with a password and specify allowed operations
+        ////ws.Protect("Hearn@Industrial"); // The password for unprotecting the sheet
+        // .SetFormatCells(true)        Allow users to format cells
+        // .SetInsertRows(true)         Allow users to insert rows
+        // .SetDeleteRows(true)         Allow users to delete rows
+        // .SetSelectLockedCells(true)  Allow selecting locked cells (default)
+        // .SetSelectUnlockedCells(true); Allow selecting unlocked cells (default)
+
+
+        // Define the path to your image file
+        // IMPORTANT: Replace this with the actual path to your image
+        //string imagePath = @"C:\path\to\your\image.png"; 
+
+        //.Scale(0.5); // Optional: Scale the picture to 50% of its original size
+
+        // Option 2: Add a picture from a Stream (useful if the image is in memory or a database)
+        // For demonstration, we'll open the file as a stream
+        // In a real application, you might get this from a database or web request
+        /*
+        using (var streamp = new FileStream(imagePath, FileMode.Open))
+        {
+            // The name "MyImageFromStream" is optional but good practice for identification
+            //var picture2 = ws.AddPicture("MyImageFromStream", streamp, XLPictureFormat.Png)
+            //                     .MoveTo(ws.Cell("E2"), ws.Cell("G5")); // Span the image across cells E2 to G5
+            // .Scale(0.75); // You can also scale when spanning across cells
+
+            var picture2 = ws.AddPicture(streamp)
+            .MoveTo(ws.Cell("E2"), ws.Cell("G5"));
+            }
+        */
+                                                         // You can also adjust properties like:
+                                                         // picture1.NoChangeAspect = true; // Keep aspect ratio when resizing
+                                                         // picture1.NoMove = true; // Prevent the image from moving with cell changes
+                                                         // picture1.NoResize = true; // Prevent the image from resizing with cell changes
+                                                         ws.Column(1).Width = 4.78;
+        ws.Column(2).Width = 13.44;
+        ws.Column(3).Width = 21.56;
+        ws.Column(4).Width = 56.33;
+        ws.Column(5).Width = 21.89;
+        ws.Column(6).Width = 13.22;
+        ws.Column(7).Width = 14.11;
+        ws.Column(8).Width = 13.22;
+        /*
+         string imagePath = Path.Combine(Env.WebRootPath, "Images", "hearn.png");
+        // Check if the image file exists
+        if (!File.Exists(imagePath))
+        {
+            Console.WriteLine($"Error: Image file not found at '{imagePath}'. Please provide a valid path.");
+            return;
+        }
+
+        // Option 1: Add a picture directly from a file path
+        var picture1 = ws.AddPicture(imagePath)
+                               .MoveTo(ws.Cell("A1"),ws.Cell("C4")); // Position the top-left corner of the image at cell B2
+
+         */
+        
+        string imageUrl = "Images/hearn.png";
+        try
+        {
+            // Asynchronously get the image data as a stream from the URL
+            using (var imageStream = await Http.GetStreamAsync(imageUrl))
+            {
+                // The AddPicture method in most modern libraries has an
+                // overload that accepts a Stream.
+                var picture1 = ws.AddPicture(imageStream)
+                                   .MoveTo(ws.Cell("A1"), ws.Cell("C4"));
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            // This will catch errors if the image URL is wrong or the file doesn't exist,
+            // acting as your new "File.Exists" check.
+            Console.WriteLine($"Error: Could not fetch the image from '{imageUrl}'. Status: {ex.StatusCode}");
+            return;
+        }
+        ws.Range("A1:H3").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        // Set up header information
+        ws.Cell("G1").Value = "Document #";
+        ws.Cell("G1").Style.Font.Bold = true;
+        ws.Cell("G2").Value = "Date Revised:";
+        ws.Cell("G2").Style.Font.Bold = true;
+        ws.Cell("G3").Value = "Revision Level:";
+        ws.Cell("G3").Style.Font.Bold = true;
+        //ws.Range("G1:H1").Merge();
+        //ws.Range("G2:H2").Merge();
+        //ws.Range("G3:H3").Merge();
+        ws.Range("G1:H3").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range("G1:H3").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        // Company Logo Placeholder (You'd typically insert an image here)
+        // For simplicity, we'll just put "HEARN LOGO" as text
+        // ws.Cell("A1").Value = "HEARN";
+        //ws.Cell("A3").Value = "LOGISTICS SERVICES";
+        ws.Range("A1:B2").Merge();
+        ws.Range("A1:B3").Style.Font.Bold = true;
+        ws.Range("A1:B3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Range("A1:B3").Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        ws.Range("A1:B3").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        //ws.Range("A1:B3").Style.Fill.BackgroundColor = XLColor.FromHtml("#D9D9D9"); // Light Gray
+
+        // Form Title
+        ws.Cell("C1").Value =  $"Order Request Form for Order #: {ID}";// $"Order Request Form";
+        ws.Range("C1:F3").Merge();
+        ws.Range("C1:F3").Style.Font.FontSize = 20;
+        ws.Range("C1:F3").Style.Font.Bold = true;
+        ws.Range("C1:F3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Range("C1:F3").Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        ws.Range("C1:F3").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+        // Request Details
+        ws.Cell("A5").Value = "Date of Request:";
+        ws.Cell("A6").Value = "Installer:";
+        ws.Cell("A7").Value = "Requestor:";
+        ws.Range("A5:B5").Merge();
+        ws.Range("A6:B6").Merge();
+        ws.Range("A7:B7").Merge();
+        ws.Range("A5:A7").Style.Font.Bold = true;
+        ws.Range("A5:A7").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        ws.Cell("C5").Value = orderModel.CreateTime.ToString("dddd, MMMM dd, yyyy");// "Thursday, May 22, 2025";
+        // ws.Cell("C5").Value = DateTime.Now.ToString("dddd, MMMM dd, yyyy");// "Thursday, May 22, 2025";
+        ws.Cell("C6").Value = orderModel.Installer;// "D";
+        ws.Cell("D6").Value = $"Contact: {orderModel.InstallerContact} Phone #: {orderModel.InstallerPhone}";
+
+        ws.Cell("C7").Value = orderModel.Requestor;//"David Kim";
+
+        ws.Range("C5:D5").Merge();
+        //ws.Range("C6:D6").Merge();
+        ws.Range("C7:D7").Merge();
+
+        ws.Range("C5:D7").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range("C5:D7").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        ws.Cell("E5").Value = "Delivery Date:";
+        ws.Cell("E6").Value = "Delivery Time:";
+        ws.Cell("E7").Value = "Dock Door:";
+        ws.Range("E5:E7").Style.Font.Bold = true;
+        ws.Range("E5:E7").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        ws.Cell("F5").Value = orderModel.DeliveryDate.Value.ToString(@"MM\/dd\/yyyy");//"MM/dd/yyyy");//"5/25/2025";
+
+        //DateTime time = DateTime.Today.Add(orderModel.DeliveryTime.Value);
+        //string formatted = time.ToString("hh:mm tt"); // "02:30 PM"
+        ws.Cell("F6").Value = orderModel.DeliveryTime;// formatted;
+
+
+        ws.Cell("F7").Value = orderModel.DockDoor;//"4";
+        ws.Range("F5:H5").Merge();
+        ws.Range("F6:H6").Merge();
+        ws.Range("F7:H7").Merge();
+        ws.Range("F5:H7").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range("F5:H7").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        // Table Headers
+        ws.Cell("A9").Value = "Index";
+        ws.Cell("B9").Value = "Container #";
+        ws.Cell("C9").Value = "Container QR Code";
+        ws.Cell("D9").Value = "Pallet # / Box #";
+        ws.Cell("E9").Value = "Pallet/Box QR Code";
+        ws.Cell("F9").Value = "Whse/Site";
+        ws.Cell("G9").Value = "Order Container";
+        ws.Cell("H9").Value = "Order Crate";
+
+        // Style Table Headers
+        ws.Range("A9:H9").Style.Font.Bold = true;
+        ws.Range("A9:H9").Style.Fill.BackgroundColor =XLColor.LightGray;// XLColor.FromHtml("#CCEEFF"); // Light Blue
+        ws.Range("A9:H9").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range("A9:H9").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        ws.SheetView.Freeze(9, 0); // Freezes the rows
+
+
+        int row = 10;
+        int col = 1;
+
+
+
+
+        // row++;
+        // col = 1;
+        int count = 0;
+        foreach (var scan in CyclePartsList)
+        {
+            if(scan.IsContainerSelected == false && scan.IsPalletSelected == false)
+                continue;
+            count += 1;
+            ws.Cell(row, col++).Value = count.ToString().PadLeft(3,'0');
+            ws.Cell(row, col++).Value = scan.ContainerNo;
+            ws.Cell(row, col++).Value = scan.ContainerQRCode;
+            ws.Cell(row, col++).Value = scan.PalletNo;
+            ws.Cell(row, col++).Value = scan.PalletQRCode;
+            ws.Cell(row, col++).Value = scan.WhseSite;
+            if(scan.IsContainerSelected)
+                ws.Cell(row, col++).Value = "X";
+            else
+                ws.Cell(row, col++).Value = "";
+            if(scan.IsPalletSelected)
+                ws.Cell(row, col++).Value = "X";
+            else
+                ws.Cell(row, col++).Value = "";
+            row++;
+            col = 1;
+        }
+        // Apply borders to data rows
+        ws.Range($"A10:H{9 + count}").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range($"A10:H{9 + count}").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+
+        //Then adjust the columns
+        //ws.Columns().AdjustToContents();
+
+        var stream = new MemoryStream();
+
+        wb.SaveAs(stream);
+        stream.Position = 0;
+
+
+        using var streamRef = new DotNetStreamReference(stream: stream);
+
+        string name = "Order Request " + DateTime.Now.ToString("yyyy-MM-dd") + ".xlsx";
+        await JS.InvokeVoidAsync("downloadFileFromStream", name, streamRef);
+
+        bReport = false;
+        StateHasChanged();
+    }
+
+    private List<string> DockList = [
+      "A5", "A11", "A13", "A20", "A26", "A28", "A35","A45", "A50", "A54", "A56","A60", "A64",
+      "A69", "A74", "A81", "A85", "L1QA", "Mezz A1", "Mezz A4",
+      "Mezz A15", "Mezz A17", "Mezz A20","Mezz A55", "Mezz A71", "Mezz A82","FE","BE"
+    ];
+
+    private async Task<IEnumerable<string>> SearchDock(string value, CancellationToken token)   //Version 7 adds CancellationToken token
+    {
+
+        // if text is null or empty, show complete list
+        if (string.IsNullOrEmpty(value))
+            return DockList.Select(x => x);
+        return DockList.Select(x => x).Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+}

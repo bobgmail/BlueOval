@@ -1,0 +1,206 @@
+﻿@page "/PartSearch"
+@attribute [Authorize]
+
+@using ClosedXML.Excel;
+@using Microsoft.AspNetCore.Authorization
+
+
+@inject DapperContextApi sqlService;
+@inject IJSRuntime JS
+
+
+
+<PageTitle>Part Search</PageTitle>
+<MudCard>
+    <MudCardContent>
+        <MudText Typo="Typo.body1">Current value: @SearchText</MudText>
+        <MudTextField Label="Search products..."
+                      @bind-Value="SearchText" Variant="Variant.Outlined"
+                      DebounceInterval="500"
+                      Immediate="false"
+                      Placeholder="Type here..."
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      AdornmentColor="Color.Primary">
+        </MudTextField>
+
+        <MudAlert Class="mt-4" Icon="@Icons.Material.Filled.Info" Severity="Severity.Info">
+            Debounced value updates 500ms after you stop typing
+        </MudAlert>
+
+     
+    </MudCardContent>
+</MudCard>
+<h3  class ="text-primary">Part Search</h3>
+
+ @* <h1  >@SearchText</h1>*@
+
+ <div class="row mx-1 mb-2">
+    <label  class="col-sm-3 col-form-label ">Please Input Part Number:</label>
+      <div class="col-auto">
+        <DebounceInput  class="form-control" @bind-value="SearchText" DebounceTime="20"
+           @bind-value:event="oninput" placeholder="Part Number"/>
+      </div>
+       @*<AutoFocus GetControl=@( () => (ElementReference)LabelInput)/>*@
+
+  </div>
+   @if(CycleCtrlList != null && CycleCtrlList.Count > 0)
+    {
+       <h5>Part at Location [ PartQty: @SelectedPartCtrl.PartQtySum     BinQty: @SelectedPartCtrl.BinQtySum ] </h5>
+       <h6 style="color:darkblue">Select to Display Details</h6>
+    }
+    else
+    {
+            @if(isSearching)
+            {
+                <div style="text-align: center;margin-top: 200px;"><em>Search...</em></div>
+                <div class="spinner"></div>
+            }
+       @*  <h5>Part at Location </h5> *@
+    }
+
+ @if(CycleCtrlList != null && CycleCtrlList.Count > 0)
+{
+    <div class="row">
+        <div class="col-5">
+
+<div class="table-responsive border">
+    <table class="table table-hover table-condensed table-striped " >
+      <thead class="bg-light " >
+                <tr >
+                     <th>Part #</th>
+                     <th>@SiteControl.GetSkidBatchHeader()</th>
+                     <th>Part Qty</th>
+                     <th>Bin Qty</th>
+                     <th>Location</th>
+ 
+             
+                </tr>
+                
+      </thead>
+      <tbody>
+          @if(CycleCtrlList != null && CycleCtrlList.Count > 0)
+            {
+            @for(int n =  SelectedPartCtrl.IndexS; n <= SelectedPartCtrl.IndexD; n++)
+                {
+                    PartCycle item = CyclePartsList[n];
+                  //string colorClass= (item.IsShipped == true) ? "bg-secondary bg-gradient text-white":"";
+                   string colorLocation= (item.IsShipped == true) ? "text-danger":"";
+                   string colorClass = (item == SelectedPart) ? "HighlightClass" : "";
+                 <tr class="@colorClass" style=" cursor:pointer; " @onclick="() => { SetSelectedPart(item); SelectedPart = item; }">
+                 
+                   <td>@CyclePartsList[n].PartNo</td>
+                   <td>@CyclePartsList[n].SkidNo</td>
+                   <td>@CyclePartsList[n].PartQty</td>
+                   <td>@CyclePartsList[n].BinQty</td>
+                   <td class = "@colorLocation">@CyclePartsList[n].Location</td>
+                 </tr>
+                }
+                
+            }
+      </tbody>
+    </table>
+  </div>
+        </div>
+
+        <div class="col-7">
+            <Receiving SkidNumber="@CurrentSkidNo"></Receiving>
+            @if (SiteControl.DisplayPicking())
+            {
+                <SkidShipment SkidNumber="@CurrentSkidNo" ></SkidShipment>
+            }
+            <Shipping SkidNumber="@CurrentSkidNo"></Shipping>
+            <InventoryMovement SkidNumber="@CurrentSkidNo"></InventoryMovement>
+        </div>
+    </div>
+    
+}
+
+@code{
+
+    string CurrentSkidNo { set; get; } = "";
+    //List<LocationsWithinWarehouse> Locations { get; set; } = new List<LocationsWithinWarehouse>();
+
+    void SetSelectedPart(PartCycle cycleCtrl)
+    {
+        if (cycleCtrl != SelectedPart)
+        {
+            SelectedPart = cycleCtrl;
+            CurrentSkidNo = SelectedPart.SkidNo;
+            StateHasChanged();
+        }
+    }
+
+    string _searchTxt = "";
+    public string SearchText 
+    { 
+        get
+        {
+            return _searchTxt;
+        } 
+        set
+        {
+            if(_searchTxt != value)
+            {
+                Search(value);
+                _searchTxt = value;
+            }
+        }
+    }
+    public List<PartCycleCtrl>? CycleCtrlList { get; set; }
+    public List<PartCycle>? CyclePartsList{ get; set; }
+    PartCycleCtrl SelectedPartCtrl { get; set; } = new PartCycleCtrl();
+
+    PartCycle SelectedPart { get; set; } = new PartCycle();
+
+    private ElementReference LabelInput { get; set; }
+
+    private bool isSearching = false;
+    async void Search(string txt)
+    {
+        isSearching = true;
+        CycleCtrlList = null;
+        CyclePartsList = null;
+        StateHasChanged();              
+
+        CyclePartsList = await sqlService.GetInventoryCycleInfoPart(txt);
+        CycleCtrlList = await sqlService.GetInventoryCycleInfoCtrl(CyclePartsList);
+
+            SelectedPart = new PartCycle();
+        if(CycleCtrlList.Count > 0)
+        {
+            SelectedPartCtrl = CycleCtrlList[0];
+            //SelectedPart = CyclePartsList[SelectedPartCtrl.IndexS];
+            //CurrentSkidNo = SelectedPart.SkidNo;
+        }
+        else
+        {
+            SelectedPartCtrl = new PartCycleCtrl();
+            CurrentSkidNo = "";
+        }
+
+        isSearching = false;
+        StateHasChanged();              
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        //Locations = await @Service.GetLocationsAsync();
+        CyclePartsList = await sqlService.GetInventoryCycleInfoPart(SearchText);
+        CycleCtrlList = await sqlService.GetInventoryCycleInfoCtrl(CyclePartsList);
+
+            SelectedPart = new PartCycle();
+        if(CycleCtrlList.Count > 0)
+        {
+            SelectedPartCtrl = CycleCtrlList[0];
+            //SelectedPart = CyclePartsList[SelectedPartCtrl.IndexS];
+            //CurrentSkidNo = SelectedPart.SkidNo;
+        }
+        else
+        {
+            SelectedPartCtrl = new PartCycleCtrl();
+            CurrentSkidNo = "";
+        }
+
+    }
+
+}

@@ -1,0 +1,66 @@
+﻿@using BlueOval.Client.Components.Pages
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />  
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href=@Assets["_content/MudBlazor/MudBlazor.min.css"] rel="stylesheet" />
+    <ImportMap />
+    <link rel="icon" type="image/ico" href="favicon.ico" />
+    <style>
+        #app-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            background-color: #f7f7f7;
+            z-index: 9999;
+        }
+
+        .mud-progress-circular-svg {
+            animation: mud-progress-circular-rotate 1.4s linear infinite;
+        }
+
+        @@keyframes mud-progress-circular-rotate {
+            100%
+
+        {
+            transform: rotate(360deg);
+        }
+
+        }</style>
+    <HeadOutlet @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+</head>
+
+<body>
+
+    <Routes @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+    <script src="_framework/blazor.web.js" ></script>
+
+    <script src=@Assets["_content/MudBlazor/MudBlazor.min.js"]></script>
+    <script src="js/DownloadFile.js"></script>
+    <script type="text/javascript">
+         window.getOrCreateClientId = function(generatedIdFromDotNet)
+         {
+                let clientId = sessionStorage.getItem('clientId');
+
+                if (!clientId) {
+                     clientId = generatedIdFromDotNet;
+                    sessionStorage.setItem('clientId', clientId);
+                }
+            return clientId;
+        };
+    </script>
+</body>
+
+</html>

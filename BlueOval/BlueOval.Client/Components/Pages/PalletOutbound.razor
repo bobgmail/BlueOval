@@ -1,0 +1,760 @@
+﻿@page "/OutboundReport"
+@using ClosedXML.Excel;
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject DapperContextApi sqlService;
+@inject IJSRuntime JS
+
+<PageTitle>Pallets Outbound Query</PageTitle>
+<MudForm @ref="form" @bind-IsValid="@success" @bind-Errors="@errors">
+    <MudGrid Class="pa-4 gap-2 align-center">
+        <MudItem >
+            <MudText Typo="Typo.h5" Class="ml-3" Color="Color.Success">Pallets Outbound Query</MudText>
+        </MudItem>
+        <MudItem>
+            <MudSelect Dense="true" T="int" Label="Select Shift Time" Variant="Variant.Outlined" @bind-Value="LocationId" AnchorOrigin="Origin.BottomCenter">
+                <MudSelectItem T="int" Value="0">@GetNightStr(false)</MudSelectItem>
+                <MudSelectItem T="int" Value="1">@GetNightStr(true)</MudSelectItem>
+                <MudSelectItem T="int" Value="2">0:00 AM~24:00 PM</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem >
+            <MudDateRangePicker Label="Please Select Date" DateFormat="dd/MM/yyyy" Variant="Variant.Outlined"  TitleDateFormat="dddd, dd. MMMM" @bind-DateRange="RangeDateValue" />
+        </MudItem>
+
+        <MudItem >
+            <MudText Typo="Typo.h6" Class="ml-3" Color="Color.Warning">@GetPalletInfo()</MudText>
+        </MudItem>
+        <MudItem>
+            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Class="py-2"
+                       OnClick="DownloadFileFromStream"
+                       Color="Color.Primary">Generate Excel Report</MudButton>
+
+        </MudItem>
+        @if (isUpdating != 0)
+        {
+            <MudItem>
+             <MudProgressCircular Color="Color.Success" Style="height:50px;width:50px;" Indeterminate="true" />
+            </MudItem>
+        }
+    </MudGrid>
+</MudForm>
+
+<MudGrid Spacing="1">
+    <MudItem xs="12">
+   
+        <MudTable Class="mx-2" Items="@Pallets" @ref="mudTable" T="PalletInfo"
+                      Height="700px" FixedHeader="true" 
+                  Outlined="true" Elevation="1" 
+                  Dense="true" Hover="true" Bordered="true" Striped="true">
+
+            <HeaderContent>
+                <MudTh>Shipped Date</MudTh>
+                <MudTh>Container #</MudTh>
+                <MudTh>Container QR Code</MudTh>
+                <MudTh>Pallet # / Box #</MudTh>
+                <MudTh>Pallet/Box QR Code</MudTh>
+                <MudTh>Trailer #</MudTh>
+                <MudTh>Delivery Door</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.CreatedDate.ToString("MMMdd@hh:mmtt")</MudTd>
+                <MudTd>@context.ContainerNo</MudTd>
+                <MudTd>@context.ContainerQRCode</MudTd>
+                <MudTd>@context.PalletNo</MudTd>
+                <MudTd>@context.PalletQRCode</MudTd>
+                <MudTd>@context.TrailerNo</MudTd>
+                <MudTd>@context.DeliveryDoor</MudTd>
+            </RowTemplate>
+
+
+        </MudTable>
+       
+    </MudItem>
+
+</MudGrid>
+
+
+
+
+@code{
+    int isUpdating = 0;
+    private bool success;
+    private MudForm form;
+    private string[] errors = { };
+    DateRange _dateRange = new DateRange(DateTime.Now.Date, DateTime.Now.Date);
+    private DateRange RangeDateValue
+    {
+        get => _dateRange;
+        set
+        {
+            _dateRange = value;
+
+            OnRangeSelect(value);
+        }
+    }
+
+    private string GetNightStr(bool bNight)
+    {
+        int day = SiteControl.GetShiftStart(0);
+        int night =  SiteControl.GetShiftStart(1);
+
+        if (bNight)
+            return night + ":00 PM~" + day + ":00 AM";
+        return day + ":00 AM~" + night + ":00 PM";
+    }
+
+    int _LocationId = 2;
+    public  int LocationId {
+        get
+        {
+            return _LocationId;
+        }
+        set
+        {
+            int n = _LocationId;
+            _LocationId = value;
+            if(n != value)
+            {
+                OnRangeSelect(RangeDateValue);
+                // await FetchRangeInfos();
+                //StateHasChanged();
+            }
+
+            // FetchPartsAtLocation();
+            // SetFocus();
+        }
+    }//= -1;
+
+    //DateTimeOffset? StartDate { get; set; } = DateTime.Today;
+    //DateTimeOffset? EndDate { get; set; } = DateTime.Today;
+
+    public async void OnRangeSelect(DateRange range)
+    {
+        //Use range.Start and range.End here
+        await FetchRangeInfos();
+        StateHasChanged();
+    }
+
+    private async Task FetchRangeInfos()
+    {
+        DateTime s = RangeDateValue.Start.Value.Date;// StartDate.Value.Date;
+        DateTime e = RangeDateValue.End.Value.Date.AddHours(24);
+
+        Pallets = await sqlService.GetOutboundWithTimeRangeBattery(s, e, LocationId);
+        //PartSum =  await sqlService.GetOutboundPartsSummary(s,e,LocationId);
+
+    }
+
+    private List<PalletInfo> Pallets = new List<PalletInfo>();
+    //private List<InfoSummary> PartSum = new List<InfoSummary>();
+
+    protected string GetPalletInfo()
+    {
+        string ret = "Total " + Pallets.Count + " Pallets";
+        return ret;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchRangeInfos();
+    }
+    private MudTable<PalletInfo> mudTable;
+    private PalletInfo selectedItem1 = null;
+    private int selectedRowNumber = -1;
+    private string SelectedRowClassFunc(PalletInfo element, int rowNumber)
+    {
+        //if (selectedRowNumber == rowNumber)     //Selected Row: None
+        //{
+        //    selectedRowNumber = -1;
+
+        //    return string.Empty;
+        //}
+        //else
+        if (mudTable.SelectedItem != null && mudTable.SelectedItem.Equals(element))    //Selected Row: {rowNumber}
+        {
+            selectedRowNumber = rowNumber;
+
+            return "selected";
+        }
+        else
+        {
+            return string.Empty;
+        }
+    }
+    private string searchString1 = "";
+    private bool FilterFunc1(PalletInfo element) => FilterFunc(element, searchString1);
+    private bool FilterFunc(PalletInfo element, string searchString)
+    {
+        return true;
+    }
+
+
+    public string ConvertToTitle(int columnNumber)
+    {
+        string result = "";
+        while (columnNumber > 0)
+        {
+            columnNumber--; // Convert to 0-based
+            int remainder = columnNumber % 26;
+            result = (char)('A' + remainder) + result;
+            columnNumber /= 26;
+        }
+        return result;
+    }
+
+    private async Task<Stream> GetExcelFile()
+    {
+        string name = "Outbound " + GetPalletInfo();
+        IXLWorkbook wb = new XLWorkbook();
+        IXLWorksheet ws = wb.Worksheets.Add(name);
+
+        int row = 1;
+        int col = 1;
+        ws.Cell(row, col).Value = "Shipped Date";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Container #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Container QR Code";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Pallet # / Box #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Pallet/Box QR Code";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Trailer #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Delivery Door";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+
+        ws.Cell(row, col + 1).Value = $"Reported at: {DateTime.Now.ToString("yyyy-MM-dd hh:mm tt")}";
+
+        ws.SheetView.Freeze(1, 0); // Freezes the first row
+
+        SortedSet<DateTime> dateSet = new();
+
+        row++;
+        col = 1;
+        foreach (var scan in Pallets)
+        {
+            ws.Cell(row, col++).Value = scan.CreatedDate.ToString("MMMdd@hh:mmtt");
+            ws.Cell(row, col++).Value = scan.ContainerNo;
+            ws.Cell(row, col++).Value = scan.ContainerQRCode;
+            ws.Cell(row, col++).Value = scan.PalletNo;
+            ws.Cell(row, col++).Value = scan.PalletQRCode;
+            ws.Cell(row, col++).Value = scan.TrailerNo;
+            ws.Cell(row, col++).Value = scan.DeliveryDoor;
+
+            dateSet.Add(scan.CreatedDate.Date);
+            row++;
+            col = 1;
+        }
+        ws.Columns().AdjustToContents();
+
+        Dictionary<DateTime, int> dateIndex = new Dictionary<DateTime, int>();
+        int index = 2;
+        foreach (var item in dateSet)
+        {
+            dateIndex[item] = index;
+            index++;
+        }
+        /*
+        var PartsList = Pallets
+        .GroupBy(p => p.DeliveryDoor)
+        .OrderBy(g => g.Key)                        // Order groups by their key
+        .SelectMany(g => g.OrderBy(p =>
+        {
+            //var x = g.Key; // Access the group key
+            return p.CreatedDate;// = p.CreatedDate.ToLocalTime(); // Ensure CreatedDate is in local time
+
+            })) // Order within groups
+        .ToList();
+        */
+
+                                                                                                                                                                               IXLWorksheet wss = wb.Worksheets.Add("Delivery Summary");
+        Dictionary<string, int> processLst = new Dictionary<string, int>()
+        {
+           {"A",2 }, {"B",3 }, {"C",4 }, {"D",5 }, {"E",6 }, {"F",7 }, {"QA",8 }, {"MEZZ",9 },
+        };
+
+
+        wss.Cell(1, 11).Value = $"Reported at: {DateTime.Now.ToString("yyyy-MM-dd hh:mm tt")}";
+        wss.Cell(1, 2).Value = "Pallets Delivered by Area";
+        wss.Cell(1, 2).Style.Font.Bold = true;
+        wss.Range($"B1:{ConvertToTitle(processLst.Count() + 2)}1").Merge(); 
+        wss.Columns().AdjustToContents();
+        foreach (var item in processLst)
+        {
+            wss.Column(item.Value).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            wss.Column(item.Value).Width = 4.00;
+        }
+        wss.Column(10).Width = 9.00;    //Cum Total
+        wss.Column(10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        
+        row = 2;
+        col = 1;
+        wss.Cell(row, col).Value = "Date";
+        wss.Cell(row, col++).Style.Font.Bold = true;
+
+        foreach (var item in processLst)
+        {//ToString("dddd, MMMM dd, yyyy");// "Thursday, May 22, 2025";
+            wss.Cell(row, col++).Value = item.Key;
+        }
+        wss.Cell(row, col).Value = "Cum Total";
+
+        row = 3; col = 1;
+        DateTime start = RangeDateValue.Start.Value.Date; // StartDate.Value.Date;
+        DateTime end = RangeDateValue.End.Value.Date; // StartDate.Value.Date;
+        dateIndex.Clear();
+        while (start <= end)
+        {
+            wss.Cell(row, col++).Value = start.ToString("dd-MM-yyyy");
+            dateIndex[start] = row; // Store the index of the date
+            start = start.AddDays(1);
+            row++;
+            col = 1;
+        }
+
+        row = 3; col = 1;
+
+
+        wss.SheetView.Freeze(2, 0); // Freezes the first row
+        Dictionary<string, string> Door2Name =  new Dictionary<string, string>
+        {
+              {"A5",  "B" },
+              {"A11", "B" },
+              {"A13", "B" },
+              {"A20", "B" },
+              {"A26", "C" },
+              {"A28", "C" },
+              {"A35", "C" },
+              {"A45", "D" },
+              {"A50", "D" },
+              {"A54", "D" },
+              {"A56", "D" },
+              {"A60", "E" },
+              {"A64", "E" },
+              {"A69", "E" },
+              {"A74", "E" },
+              {"A81", "E" },
+              {"A85", "F" },
+              {"L1QA","QA" },
+              {"Mezz A1","MEZZ" },
+              {"Mezz A4","MEZZ" },
+              {"Mezz A15","MEZZ" },
+              {"Mezz A17","MEZZ" },
+              {"Mezz A20","MEZZ" },
+              {"Mezz A55","MEZZ" },
+              {"Mezz A71","MEZZ" },
+              {"Mezz A82","MEZZ" },
+              // {"A5",  "Mixing" },
+              // {"A11", "Gravure" },
+              // {"A13", "Coater" },
+              // {"A20", "Coater" },
+              // {"A26", "Calendering / Slitting" },
+              // {"A28", "Calendering / Slitting" },
+              // {"A35", "Calendering / Slitting" },
+              // {"A45", "Winding" },
+              // {"A50", "Winding" },
+              // {"A54", "Assembly" },
+              // {"A56", "Baking" },
+              // {"A60", "First Injection" },
+              // {"A64", "Formation" },
+              // {"A69", "Second Injection" },
+              // {"A74", "Capacity Testing" },
+              // {"A81", "Packing" },
+              // {"A85", "Packing/ Warehouse" },
+              // {"L1QA","QA" },
+              // {"Mezz","Mezz" }
+        };
+        // Step 1: Group and order the groups by DeliveryDoor
+        var orderedGroups = Pallets
+        .GroupBy(p => p.DeliveryDoor)
+        .OrderBy(g => g.Key)  // Order groups by DeliveryDoor
+        .Select(g => new
+        {
+            GroupKey = g.Key,
+            Items = g.OrderBy(p => p.CreatedDate).ToList() // Order items within the group
+        })
+        .ToList();
+
+        row++;
+        col = 1;
+        foreach (var item in orderedGroups)
+        {
+            Dictionary<DateTime, int> dateCount = new Dictionary<DateTime, int>();
+            foreach (var ship in item.Items)
+            {
+                if (dateCount.ContainsKey(ship.CreatedDate.Date))
+                    dateCount[ship.CreatedDate.Date]++;
+                else
+                    dateCount[ship.CreatedDate.Date] = 1;
+            }
+            // if (Door2Name.ContainsKey(item.GroupKey))
+            //     wss.Cell(row, col++).Value = Door2Name[item.GroupKey];
+            // else
+            //     wss.Cell(row, col++).Value = item.GroupKey;
+            if(Door2Name.ContainsKey(item.GroupKey))
+            {
+                col = processLst.ContainsKey(Door2Name[item.GroupKey]) ? processLst[Door2Name[item.GroupKey]] : 1;
+                foreach (var date in dateCount)
+                {
+                    row = dateIndex[date.Key];
+                    wss.Cell(row, col).SetValue(date.Value);
+                }
+            }
+            row++;
+            col = 1;
+        }
+
+        start = RangeDateValue.Start.Value.Date; // StartDate.Value.Date;
+        end = RangeDateValue.End.Value.Date; // StartDate.Value.Date;
+        row = 3;
+        while (start <= end)
+        {
+            int value = 0;
+            for (col = 2; col < 10; col++)
+            {
+                int? nullableIntValue = wss.Cell(row, col).GetValue<int?>();
+                if (nullableIntValue != null)
+                    value += nullableIntValue.Value;
+            }
+            if(value !=0)
+              wss.Cell(row, col++).SetValue(value);
+            else
+                wss.Cell(row, col++).SetValue("-");
+
+            start = start.AddDays(1);
+            row++;
+        }
+        /*
+        // Step 2: Extract the first item from each group
+        List<PalletInfo> firstItemsOfGroups = orderedGroups
+        .Select(g => g.Items.First())
+        .ToList();
+        
+        // Step 3: Flatten all items (if needed)
+        List<PalletInfo> allItems = orderedGroups
+        .SelectMany(g => g.Items)
+        .ToList();
+        */
+                var result = Pallets
+                    .GroupBy(p => p.DeliveryDoor)
+                    .OrderBy(g => g.Key)                        // Order groups by their key
+                    .SelectMany(g => g
+                        .OrderBy(p => p.CreatedDate)            // Order within groups
+                        .Select((p, index) => new              // Project each pallet with group start flag
+                        {
+                            Pallet = p,
+                            IsStartOfGroup = index == 0         // True for first element in group
+                        }))
+                    .ToList();
+
+        HashSet<DateTime> uniqueDates = new HashSet<DateTime>();
+        foreach (var item in result)
+        {
+            uniqueDates.Add(item.Pallet.CreatedDate.Date);
+        }
+
+        // Process the result
+        foreach (var item in result)
+        {
+            if (item.IsStartOfGroup)
+            {
+                // New group started - do something special
+               // Console.WriteLine($"NEW GROUP STARTED: Door {item.Pallet.DeliveryDoor}");
+            }
+
+            // Regular processing for each pallet
+            //Console.WriteLine($"Pallet: {item.Pallet.Id}, Created: {item.Pallet.CreatedDate}");
+        }
+
+        //Then adjust the columns
+        //wss.Columns().AdjustToContents();
+        var stream = new MemoryStream();
+
+        wb.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+    private async Task<Stream> GetExcelFileOld()
+    {
+        string name = "Outbound " + GetPalletInfo();
+        IXLWorkbook wb = new XLWorkbook();
+        IXLWorksheet ws = wb.Worksheets.Add(name);
+
+        int row = 1;
+        int col = 1;
+        ws.Cell(row, col).Value = "Shipped Date";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Container #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Container QR Code";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Pallet # / Box #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Pallet/Box QR Code";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Trailer #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Delivery Door";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+
+        ws.Cell(row, col + 1).Value = $"Reported at: {DateTime.Now.ToString("yyyy-MM-dd hh:mm tt")}";
+
+        ws.SheetView.Freeze(1, 0); // Freezes the first row
+
+        SortedSet<DateTime> dateSet = new();
+
+        row++;
+        col = 1;
+        foreach (var scan in Pallets)
+        {
+            ws.Cell(row, col++).Value = scan.CreatedDate.ToString("MMMdd@hh:mmtt");
+            ws.Cell(row, col++).Value = scan.ContainerNo;
+            ws.Cell(row, col++).Value = scan.ContainerQRCode;
+            ws.Cell(row, col++).Value = scan.PalletNo;
+            ws.Cell(row, col++).Value = scan.PalletQRCode;
+            ws.Cell(row, col++).Value = scan.TrailerNo;
+            ws.Cell(row, col++).Value = scan.DeliveryDoor;
+
+            dateSet.Add(scan.CreatedDate.Date);
+            row++;
+            col = 1;
+        }
+        ws.Columns().AdjustToContents();
+
+        Dictionary<DateTime, int> dateIndex = new Dictionary<DateTime, int>();
+        int index = 2;
+        foreach (var item in dateSet)
+        {
+            dateIndex[item] = index;
+            index++;
+        }
+        /*
+        var PartsList = Pallets
+        .GroupBy(p => p.DeliveryDoor)
+        .OrderBy(g => g.Key)                        // Order groups by their key
+        .SelectMany(g => g.OrderBy(p =>
+        {
+            //var x = g.Key; // Access the group key
+            return p.CreatedDate;// = p.CreatedDate.ToLocalTime(); // Ensure CreatedDate is in local time
+
+            })) // Order within groups
+        .ToList();
+        */
+
+        IXLWorksheet wss = wb.Worksheets.Add("Delivery Summary");
+
+        row = 1;
+        col = 1;
+        wss.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        wss.Cell(row, col).Value = "Date:";
+        wss.Cell(row, col++).Style.Font.Bold = true;
+
+        foreach (var item in dateSet)
+        {//ToString("dddd, MMMM dd, yyyy");// "Thursday, May 22, 2025";
+            wss.Cell(row, col++).Value = item.ToString("dd-MMMM");
+        }
+
+        wss.Cell(row, col + 1).Value = $"Reported at: {DateTime.Now.ToString("yyyy-MM-dd hh:mm tt")}";
+
+        row++; col = 1;
+        wss.Cell(row, col).Value = "Process";
+        wss.Cell(row, col++).Style.Font.Bold = true;
+        wss.Cell(row, col).Value = "Pallets Delivered";
+        if (dateSet.Count() > 1)
+        {
+            wss.Range($"B2:{ConvertToTitle(dateSet.Count() + 1)}2").Merge(); // Merge the header cells for dates
+        }
+        wss.Cell(row, col++).Style.Font.Bold = true;
+
+
+        wss.SheetView.Freeze(2, 0); // Freezes the first row
+        Dictionary<string, string> Door2Name = new Dictionary<string, string>
+        {
+              {"A5",  "B" },
+              {"A11", "B" },
+              {"A13", "B" },
+              {"A20", "B" },
+              {"A26", "C" },
+              {"A28", "C" },
+              {"A35", "C" },
+              {"A45", "D" },
+              {"A50", "D" },
+              {"A54", "D" },
+              {"A56", "D" },
+              {"A60", "E" },
+              {"A64", "E" },
+              {"A69", "E" },
+              {"A74", "E" },
+              {"A81", "E" },
+              {"A85", "F" },
+              {"L1QA","QA" },
+              {"Mezz A1","Mezz" },
+              {"Mezz A4","Mezz" },
+              {"Mezz A15","Mezz" },
+              {"Mezz A17","Mezz" },
+              {"Mezz A20","Mezz" },
+              {"Mezz A55","Mezz" },
+              {"Mezz A71","Mezz" },
+              {"Mezz A82","Mezz" },
+              // {"A5",  "Mixing" },
+              // {"A11", "Gravure" },
+              // {"A13", "Coater" },
+              // {"A20", "Coater" },
+              // {"A26", "Calendering / Slitting" },
+              // {"A28", "Calendering / Slitting" },
+              // {"A35", "Calendering / Slitting" },
+              // {"A45", "Winding" },
+              // {"A50", "Winding" },
+              // {"A54", "Assembly" },
+              // {"A56", "Baking" },
+              // {"A60", "First Injection" },
+              // {"A64", "Formation" },
+              // {"A69", "Second Injection" },
+              // {"A74", "Capacity Testing" },
+              // {"A81", "Packing" },
+              // {"A85", "Packing/ Warehouse" },
+              // {"L1QA","QA" },
+              // {"Mezz","Mezz" }
+        };
+        // Step 1: Group and order the groups by DeliveryDoor
+        var orderedGroups = Pallets
+        .GroupBy(p => p.DeliveryDoor)
+        .OrderBy(g => g.Key)  // Order groups by DeliveryDoor
+        .Select(g => new
+        {
+            GroupKey = g.Key,
+            Items = g.OrderBy(p => p.CreatedDate).ToList() // Order items within the group
+        })
+        .ToList();
+
+        row++;
+        col = 1;
+        foreach (var item in orderedGroups)
+        {
+            Dictionary<DateTime, int> dateCount = new Dictionary<DateTime, int>();
+            foreach (var ship in item.Items)
+            {
+                if (dateCount.ContainsKey(ship.CreatedDate.Date))
+                    dateCount[ship.CreatedDate.Date]++;
+                else
+                    dateCount[ship.CreatedDate.Date] = 1;
+            }
+            if (Door2Name.ContainsKey(item.GroupKey))
+                wss.Cell(row, col++).Value = Door2Name[item.GroupKey];
+            else
+                wss.Cell(row, col++).Value = item.GroupKey;
+
+
+            foreach (var date in dateCount)
+            {
+                wss.Cell(row, dateIndex[date.Key]).SetValue(date.Value);
+            }
+            row++;
+            col = 1;
+        }
+        /*
+        // Step 2: Extract the first item from each group
+        List<PalletInfo> firstItemsOfGroups = orderedGroups
+        .Select(g => g.Items.First())
+        .ToList();
+
+        // Step 3: Flatten all items (if needed)
+        List<PalletInfo> allItems = orderedGroups
+        .SelectMany(g => g.Items)
+        .ToList();
+        */
+        var result = Pallets
+            .GroupBy(p => p.DeliveryDoor)
+            .OrderBy(g => g.Key)                        // Order groups by their key
+            .SelectMany(g => g
+                .OrderBy(p => p.CreatedDate)            // Order within groups
+                .Select((p, index) => new              // Project each pallet with group start flag
+                {
+                    Pallet = p,
+                    IsStartOfGroup = index == 0         // True for first element in group
+                }))
+            .ToList();
+
+        HashSet<DateTime> uniqueDates = new HashSet<DateTime>();
+        foreach (var item in result)
+        {
+            uniqueDates.Add(item.Pallet.CreatedDate.Date);
+        }
+
+        // Process the result
+        foreach (var item in result)
+        {
+            if (item.IsStartOfGroup)
+            {
+                // New group started - do something special
+                // Console.WriteLine($"NEW GROUP STARTED: Door {item.Pallet.DeliveryDoor}");
+            }
+
+            // Regular processing for each pallet
+            //Console.WriteLine($"Pallet: {item.Pallet.Id}, Created: {item.Pallet.CreatedDate}");
+        }
+
+        //Then adjust the columns
+        wss.Columns().AdjustToContents();
+        var stream = new MemoryStream();
+
+        wb.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+
+    private async Task DownloadFileFromStream()
+    {
+        if (LocationId == -1 || Pallets == null || Pallets.Count == 0)
+            return;
+        isUpdating = 1;
+        StateHasChanged();
+        await Task.Delay(100);
+        var fileStream = await GetExcelFile();
+
+
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+
+        string FileName = "Outbound "; 
+        switch(LocationId)
+        {
+            case 0:
+                FileName += "6AM~6PM";
+                break;
+            case 1:
+                FileName += "6PM~6AM";
+                break;
+            case 2:
+                FileName += "0AM~24PM";
+                break;
+        }
+        FileName += " " + RangeDateValue.Start.Value.Date.ToString("yyyy-MM-dd") + "~" + RangeDateValue.End.Value.Date.ToString("yyyy-MM-dd") + ".xlsx";
+        await JS.InvokeVoidAsync("downloadFileFromStream", FileName, streamRef);
+        isUpdating = 0;
+        StateHasChanged();
+        await Task.Delay(100);
+  
+    }
+
+    private async void GenerateTheReport()
+    {
+
+        //if (CtrlList.Count == 0 )
+        //    return;
+
+
+        await DownloadFileFromStream();
+
+
+        StateHasChanged();
+
+    }
+
+   
+}

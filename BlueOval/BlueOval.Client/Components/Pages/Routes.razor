@@ -1,0 +1,87 @@
+﻿@using BlueOval.Client.Components.Layout
+@using BlueOval.Client.Components.Pages
+@using Microsoft.AspNetCore.Components.Authorization
+
+<CascadingAuthenticationState>
+     @if (!_initialAuthCheckComplete)
+    {
+        <!-- Show this full-page loader until the very first auth check is done -->
+        <MudPaper Style="width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;">
+            <div>
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Class="mt-4">Securing connection...</MudText>
+            </div>
+        </MudPaper>
+    }
+    else
+    {
+        <Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        @* <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" /> *@
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@GetLayoutForRoute(routeData)">
+
+                    <NotAuthorized>
+                        
+                        @* <NotAuthorized> part is only invoked/displayed when the route endpoint has a Authorize tag. *@
+                            
+                            <RedirectToLogin/>
+                         
+                     </NotAuthorized>
+                    <Authorizing>
+                        <p>Authorizing...</p>
+                    </Authorizing>
+                </AuthorizeRouteView>
+
+    </Found>
+
+        <NotFound>
+            @* <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView> *@
+            <LayoutView >
+                <NotFound />
+            </LayoutView>
+
+        </NotFound>
+</Router>}
+</CascadingAuthenticationState>
+
+@code {
+    [Inject]
+    private NavigationManager NavigationManager { get; set; }
+    private bool _initialAuthCheckComplete = false;
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; }
+    private Type GetLayoutForRoute(RouteData routeData)
+    {
+        // Example: Check for a specific path prefix
+        if (NavigationManager.Uri.Contains("/ToLogin?ReturnUrl", StringComparison.OrdinalIgnoreCase))
+         {
+            return typeof(MainLayoutNoNav);
+         }
+        // else if (NavigationManager.Uri.Contains("/auth/", StringComparison.OrdinalIgnoreCase))
+        // {
+        //     return typeof(LoginLayout); A layout designed for login/registration
+        // }
+        // else if (NavigationManager.Uri.Contains("/blog/", StringComparison.OrdinalIgnoreCase))
+        // {
+        //     return typeof(BlogLayout); A specific layout for blog posts
+        // }
+        // ... add more conditions as needed
+
+        // Fallback to the main layout if no specific rule matches
+        return typeof(MainLayout);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        // Awaiting this task is the key. The code will pause here until
+        // the first GetAuthenticationStateAsync() call has completed.
+        await AuthStateTask;
+
+        // Now that the auth state is known, we can allow the router to render.
+        _initialAuthCheckComplete = true;
+    }
+
+}

@@ -1,0 +1,563 @@
+﻿@page "/OrderRequestSearch"
+
+@using ClosedXML.Excel
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+@inject DapperContextApi sqlService;
+@inject IJSRuntime JS
+@inject HttpClient Http
+
+
+<PageTitle>Order Request Search</PageTitle>
+<style>
+    .selected {
+        background-color: #1E88E5 !important;
+    }
+
+        .selected > td {
+            color: white !important;
+        }
+
+            .selected > td .mud-input {
+                color: white !important;
+            }
+    /* Force FAB container */
+    .mud-button-root.mud-fab {
+        min-width: 24px !important;
+        min-height: 24px !important;
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+        /* Target inner button element */
+        .mud-button-root.mud-fab > button {
+            min-width: 24px !important;
+            min-height: 24px !important;
+            padding: 0 !important;
+        }
+
+        /* Shrink icon */
+        .mud-button-root.mud-fab .mud-icon-root {
+            font-size: 16px !important;
+            width: 16px !important;
+            height: 16px !important;
+        }
+
+
+    /* Shrink the entire control */
+    .custom-small-select .mud-input-control {
+        min-height: 24px !important; /* Overall height */
+    }
+
+    /* Input text and padding */
+    .custom-small-select .mud-select-input {
+        padding-top: 2px !important;
+        padding-bottom: 2px !important;
+        font-size: 0.8rem !important; /* Text size */
+    }
+
+    /* Input container */
+    .custom-small-select .mud-input {
+        min-height: 24px !important;
+        line-height: 1.2 !important;
+    }
+
+    /* Dropdown icon */
+    .custom-small-select .mud-select-input-slot button {
+        padding: 2px !important;
+    }
+
+    .custom-small-select .mud-icon-root {
+        width: 16px !important;
+        height: 16px !important;
+        font-size: 16px !important;
+    }
+</style>
+
+
+
+    <MudGrid Class="pa-4 gap-2 align-center">
+        <MudItem>
+            <MudText Typo="Typo.h5" Class="ml-3" Color="Color.Success">Order Request Search</MudText>
+        </MudItem>
+        <MudItem>
+            <MudSelect Dense="true" T="int" Label="Select Search Type" Variant="Variant.Outlined" @bind-Value="selectionMode" AnchorOrigin="Origin.BottomLeft">
+                <MudSelectItem T="int" Value="0">By Created Date</MudSelectItem>
+                <MudSelectItem T="int" Value="1">By Delivery Date</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    <MudItem>
+        <MudDateRangePicker Label="Please Select Date" DateFormat="dd/MM/yyyy" Variant="Variant.Outlined" TitleDateFormat="dddd, dd. MMMM" @bind-DateRange="RangeDateValue" />
+    </MudItem>
+
+
+        @if (bReport)
+        {
+            <MudItem>
+                <MudProgressCircular Color="Color.Success" Style="height:50px;width:50px;" Indeterminate="true" />
+            </MudItem>
+        }
+    </MudGrid>
+
+<MudText Typo="Typo.h6" Class="ml-3" Color="Color.Primary">Orders Info </MudText>
+
+<MudTable Class="mx-2" Items="@OrdersList" T="EquipmentOrderInfo"
+              Height="350px" FixedHeader="true" @ref="mudTable"
+              Outlined="true" Elevation="1"
+              Dense="true" Hover="true" Bordered="true" Striped="true"
+              OnRowClick="@OnRowClicked"
+          Filter="new Func<EquipmentOrderInfo,bool>(FilterFunc1)"
+              @bind-SelectedItem="SelectedOrderRequest"
+              RowClassFunc="@SelectedRowClassFunc">                     
+
+        
+
+        <HeaderContent>
+            <MudTh>Order ID</MudTh>
+            <MudTh>Installer</MudTh>
+            <MudTh>Requestor</MudTh>
+            <MudTh>Dock Door</MudTh>
+            <MudTh>Delivery Date</MudTh>
+            <MudTh>Delivery Time</MudTh>
+            <MudTh>Created Time</MudTh>
+            <MudTh>Order File</MudTh>
+        </HeaderContent>
+
+        <RowTemplate >
+            <MudTd>@context.ID </MudTd>
+            <MudTd>@context.Installer</MudTd>
+            <MudTd>@context.Requestor</MudTd>
+            <MudTd>@context.DockDoor</MudTd>
+            <MudTd>@context.DeliveryDate.Value.ToString("yyyy-MM-dd")</MudTd>
+            <MudTd>@context.DeliveryTime</MudTd>
+            <MudTd>@context.CreateTime</MudTd>
+            <MudTd>
+            <MudTooltip Text="Excel File">
+                <MudFab @onclick="@(async () => { SelectedOrderRequest = context; 
+                                                  OrderDetailList = await sqlService.GetEquipmentOrderInfos(context.ID); 
+                                                  StateHasChanged(); 
+                                                  await GenerateXlsReport(context); 
+                                  })" 
+                        Color="Color.Info" StartIcon="@Icons.Material.Filled.Download" Size="Size.Small" IconSize="Size.Small" />
+            </MudTooltip>
+            </MudTd>
+        </RowTemplate>
+
+    </MudTable>
+    <MudSpacer />
+@if (SelectedOrderRequest != null && OrderDetailList.Count > 0)
+    {
+    <MudText Typo="Typo.h6" Class="ml-3" Color="Color.Primary">Order Detail</MudText>
+    <MudTable Class="mx-2" Items="@OrderDetailList" T="EquipmentOrderDetail"
+                  Height="350px" FixedHeader="true" 
+                  Outlined="true" Elevation="1"
+                  Dense="true" Hover="true" Bordered="true" Striped="true">
+
+
+
+            <HeaderContent>
+                <MudTh>Container #</MudTh>
+                <MudTh>Container QR Code</MudTh>
+                <MudTh>Pallet #</MudTh>
+                <MudTh>Pallet QR Code</MudTh>
+                <MudTh>Whse / Site</MudTh>
+                <MudTh>Container Selected</MudTh>
+                <MudTh>PalletSelected</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.ContainerNo</MudTd>
+                <MudTd>@context.ContainerQRCode</MudTd>
+                <MudTd>@context.PalletNo</MudTd>
+                <MudTd>@context.PalletQRCode</MudTd>
+                <MudTd>@context.WhseSite</MudTd>
+                <MudTd>@context.GetContainerSelected()</MudTd>
+                <MudTd>@context.GetPalletSelected()</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+    }
+ 
+  
+
+
+
+
+@code {
+
+    private int _selectionMode { get; set; } = 1;
+    public int selectionMode
+    {
+        get
+        {
+            return _selectionMode;
+        }
+        set
+        {
+            int n = _selectionMode;
+            _selectionMode = value;
+            if (n != value)
+            {
+                OnRangeSelect();
+            }
+
+        }
+    }
+
+    DateRange _dateRange = new DateRange(DateTime.Now.Date, DateTime.Now.Date);
+    private DateRange RangeDateValue
+    {
+        get => _dateRange;
+        set
+        {
+            _dateRange = value;
+
+            OnRangeSelect();
+        }
+    }
+    private async Task OnRangeSelect()
+    {
+        if (RangeDateValue.Start.HasValue && RangeDateValue.End.HasValue)
+        {
+            // Trigger any logic needed when the date range is selected
+            // For example, you might want to refresh the data based on the selected date range
+            OrdersList = await sqlService.GetEquipmentOrderInfos(RangeDateValue.Start.Value, RangeDateValue.End.Value, selectionMode);
+
+            if (OrdersList.Count > 0)
+            {
+                SelectedOrderRequest = OrdersList[0];
+                OrderDetailList = await sqlService.GetEquipmentOrderInfos(OrdersList[0].ID);
+            }
+            else
+            {
+                SelectedOrderRequest = null;
+                OrderDetailList = [];
+            }
+            StateHasChanged();
+        }
+    }
+    private async Task OnRowClicked(TableRowClickEventArgs<EquipmentOrderInfo> args)
+    {
+        // if (LastClickTime.HasValue && (DateTime.Now - LastClickTime.Value).TotalMilliseconds < 500)
+        // {
+        //     Double-click logic
+        //     await HandleDoubleClick(args.Item);
+        //     LastClickTime = null;
+        // }
+        // else
+        {
+            // Single-click logic
+            SelectedOrderRequest = args.Item;
+            OrderDetailList = await sqlService.GetEquipmentOrderInfos(SelectedOrderRequest.ID);
+            StateHasChanged();
+            //SelectedPartCtrl = args.Item;
+            //LastClickTime = DateTime.Now;
+        }
+    }
+    private MudTable<EquipmentOrderInfo> mudTable;
+    //private PartCycleCtrl selectedItem1 = null;
+    private int selectedRowNumber = -1;
+    private string SelectedRowClassFunc(EquipmentOrderInfo element, int rowNumber)
+    {
+        //if (selectedRowNumber == rowNumber)     //Selected Row: None
+        //{
+        //    selectedRowNumber = -1;
+
+        //    return string.Empty;
+        //}
+        //else
+        if (mudTable.SelectedItem != null && mudTable.SelectedItem.Equals(element))    //Selected Row: {rowNumber}
+        {
+            selectedRowNumber = rowNumber;
+
+            return "selected";
+        }
+        else
+        {
+            return string.Empty;
+        }
+    }
+    private string searchString1 = "";
+    private bool FilterFunc1(EquipmentOrderInfo element) => FilterFunc(element, searchString1);
+    private bool FilterFunc(EquipmentOrderInfo element, string searchString)
+    {
+        return true;
+    }
+
+    public List<EquipmentOrderInfo> OrdersList { get; set; } = [];
+    public List<EquipmentOrderDetail> OrderDetailList { get; set; } = [];
+
+    EquipmentOrderInfo? SelectedOrderRequest { get; set; } = new EquipmentOrderInfo();
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+    }
+
+    protected  override async Task OnInitializedAsync()
+    {
+        await OnRangeSelect();
+    }
+
+  
+
+   
+    bool bReport = false;
+    private async Task GenerateXlsReport(EquipmentOrderInfo SelectedOrder)
+    {
+        //  SelectedOrderRequest
+
+        if (OrderDetailList is null || OrderDetailList.Count == 0 || SelectedOrder is null)
+            return;
+
+        if (bReport)
+            return;
+
+
+
+
+        bReport = true;
+        StateHasChanged();
+        IXLWorkbook wb = new XLWorkbook();
+        IXLWorksheet ws = wb.Worksheets.Add("Order Request");
+        ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
+        ws.PageSetup.Margins.Header = 0.3; // Specific margin for Header
+        // Set up the header
+        ws.PageSetup.Header.Left.AddText(SelectedOrder.CreateTime.ToString("MMMM-dd-yyyy HH:mm"));
+        var title = ws.PageSetup.Header.Center.AddText("ORDER REQUEST FORM");
+        title.SetFontSize(12).SetBold();
+        ws.PageSetup.Header.Right.AddText("Page &P of &N"); // Page number and total pages
+
+        // Enable scale-to-fit to prevent content from overlapping with the footer
+        ws.PageSetup.ScaleHFWithDocument = true;
+        ws.PageSetup.FitToPages(1, 0); // Fit to width, auto-adjust height
+
+
+        // Protect the worksheet with a password and specify allowed operations
+        ////ws.Protect("Hearn@Industrial"); // The password for unprotecting the sheet
+                                        // .SetFormatCells(true)        Allow users to format cells
+                                        // .SetInsertRows(true)         Allow users to insert rows
+                                        // .SetDeleteRows(true)         Allow users to delete rows
+                                        // .SetSelectLockedCells(true)  Allow selecting locked cells (default)
+                                        // .SetSelectUnlockedCells(true); Allow selecting unlocked cells (default)
+
+
+        // Define the path to your image file
+        // IMPORTANT: Replace this with the actual path to your image
+        //string imagePath = @"C:\path\to\your\image.png";
+
+        //.Scale(0.5); // Optional: Scale the picture to 50% of its original size
+
+        // Option 2: Add a picture from a Stream (useful if the image is in memory or a database)
+        // For demonstration, we'll open the file as a stream
+        // In a real application, you might get this from a database or web request
+        /*
+        using (var streamp = new FileStream(imagePath, FileMode.Open))
+        {
+            // The name "MyImageFromStream" is optional but good practice for identification
+            //var picture2 = ws.AddPicture("MyImageFromStream", streamp, XLPictureFormat.Png)
+            //                     .MoveTo(ws.Cell("E2"), ws.Cell("G5")); // Span the image across cells E2 to G5
+            // .Scale(0.75); // You can also scale when spanning across cells
+
+            var picture2 = ws.AddPicture(streamp)
+            .MoveTo(ws.Cell("E2"), ws.Cell("G5"));
+            }
+        */
+        // You can also adjust properties like:
+        // picture1.NoChangeAspect = true; // Keep aspect ratio when resizing
+        // picture1.NoMove = true; // Prevent the image from moving with cell changes
+        // picture1.NoResize = true; // Prevent the image from resizing with cell changes
+        ws.Column(1).Width = 4.78;
+        ws.Column(2).Width = 13.44;
+        ws.Column(3).Width = 21.56;
+        ws.Column(4).Width = 56.33;
+        ws.Column(5).Width = 21.89;
+        ws.Column(6).Width = 13.22;
+        ws.Column(7).Width = 14.11;
+        ws.Column(8).Width = 13.22;
+
+
+        /*
+         string imagePath = Path.Combine(Env.WebRootPath, "Images", "hearn.png");
+        // Check if the image file exists
+        if (!File.Exists(imagePath))
+        {
+            Console.WriteLine($"Error: Image file not found at '{imagePath}'. Please provide a valid path.");
+            return;
+        }
+
+        // Option 1: Add a picture directly from a file path
+        var picture1 = ws.AddPicture(imagePath)
+                               .MoveTo(ws.Cell("A1"), ws.Cell("C4")); // Position the top-left corner of the image at cell B2
+         */
+        
+        string imageUrl = "Images/hearn.png"; 
+        try
+        {
+            // Asynchronously get the image data as a stream from the URL
+            using (var imageStream = await Http.GetStreamAsync(imageUrl))
+            {
+                // The AddPicture method in most modern libraries has an
+                // overload that accepts a Stream.
+                var picture1 = ws.AddPicture(imageStream)
+                                   .MoveTo(ws.Cell("A1"), ws.Cell("C4"));
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            // This will catch errors if the image URL is wrong or the file doesn't exist,
+            // acting as your new "File.Exists" check.
+            Console.WriteLine($"Error: Could not fetch the image from '{imageUrl}'. Status: {ex.StatusCode}");
+            return;
+        }
+
+        ws.Range("A1:H3").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        // Set up header information
+        ws.Cell("G1").Value = "Document #";
+        ws.Cell("G1").Style.Font.Bold = true;
+        ws.Cell("G2").Value = "Date Revised:";
+        ws.Cell("G2").Style.Font.Bold = true;
+        ws.Cell("G3").Value = "Revision Level:";
+        ws.Cell("G3").Style.Font.Bold = true;
+        //ws.Range("G1:H1").Merge();
+        //ws.Range("G2:H2").Merge();
+        //ws.Range("G3:H3").Merge();
+        ws.Range("G1:H3").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range("G1:H3").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        // Company Logo Placeholder (You'd typically insert an image here)
+        // For simplicity, we'll just put "HEARN LOGO" as text
+        // ws.Cell("A1").Value = "HEARN";
+        //ws.Cell("A3").Value = "LOGISTICS SERVICES";
+        ws.Range("A1:B2").Merge();
+        ws.Range("A1:B3").Style.Font.Bold = true;
+        ws.Range("A1:B3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Range("A1:B3").Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        ws.Range("A1:B3").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        //ws.Range("A1:B3").Style.Fill.BackgroundColor = XLColor.FromHtml("#D9D9D9"); // Light Gray
+
+        // Form Title
+        ws.Cell("C1").Value = $"Order Request Form for Order #: {SelectedOrder.ID}";
+        ws.Range("C1:F3").Merge();
+        ws.Range("C1:F3").Style.Font.FontSize = 20;
+        ws.Range("C1:F3").Style.Font.Bold = true;
+        ws.Range("C1:F3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Range("C1:F3").Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        ws.Range("C1:F3").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+        // Request Details
+        ws.Cell("A5").Value = "Date of Request:";
+        ws.Cell("A6").Value = "Installer:";
+        ws.Cell("A7").Value = "Requestor:";
+        ws.Range("A5:B5").Merge();
+        ws.Range("A6:B6").Merge();
+        ws.Range("A7:B7").Merge();
+        ws.Range("A5:A7").Style.Font.Bold = true;
+        ws.Range("A5:A7").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        ws.Cell("C5").Value = SelectedOrder.CreateTime.ToString("dddd, MMMM dd, yyyy");// "Thursday, May 22, 2025";
+                                                                                    // ws.Cell("C5").Value = DateTime.Now.ToString("dddd, MMMM dd, yyyy");// "Thursday, May 22, 2025";
+        ws.Cell("C6").Value = SelectedOrder.Installer;// "D";
+        ws.Cell("D6").Value = $"Contact: {SelectedOrder.InstallerContact} Phone #: {SelectedOrder.InstallerPhone}";
+        ws.Cell("C7").Value = SelectedOrder.Requestor;//"David Kim";
+
+        ws.Range("C5:D5").Merge();
+       // ws.Range("C6:D6").Merge();
+        ws.Range("C7:D7").Merge();
+
+        ws.Range("C5:D7").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range("C5:D7").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        ws.Cell("E5").Value = "Delivery Date:";
+        ws.Cell("E6").Value = "Delivery Time:";
+        ws.Cell("E7").Value = "Dock Door:";
+        ws.Range("E5:E7").Style.Font.Bold = true;
+        ws.Range("E5:E7").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        ws.Cell("F5").Value = SelectedOrder.DeliveryDate.Value.ToString(@"MM\/dd\/yyyy");//"MM/dd/yyyy");//"5/25/2025";
+
+        //DateTime time = DateTime.Today.Add(SelectedOrderRequest.DeliveryTime.Value);
+        //string formatted = time.ToString("hh:mm tt"); // "02:30 PM"
+        ws.Cell("F6").Value = SelectedOrder.DeliveryTime;//formatted;
+
+
+        ws.Cell("F7").Value = SelectedOrder.DockDoor;//"4";
+        ws.Range("F5:H5").Merge();
+        ws.Range("F6:H6").Merge();
+        ws.Range("F7:H7").Merge();
+        ws.Range("F5:H7").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range("F5:H7").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        // Table Headers
+        ws.Cell("A9").Value = "Index";
+        ws.Cell("B9").Value = "Container #";
+        ws.Cell("C9").Value = "Container QR Code";
+        ws.Cell("D9").Value = "Pallet # / Box #";
+        ws.Cell("E9").Value = "Pallet/Box QR Code";
+        ws.Cell("F9").Value = "Whse/Site";
+        ws.Cell("G9").Value = "Order Container";
+        ws.Cell("H9").Value = "Order Crate";
+
+        // Style Table Headers
+        ws.Range("A9:H9").Style.Font.Bold = true;
+        ws.Range("A9:H9").Style.Fill.BackgroundColor = XLColor.LightGray;// XLColor.FromHtml("#CCEEFF"); // Light Blue
+        ws.Range("A9:H9").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range("A9:H9").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        ws.SheetView.Freeze(9, 0); // Freezes the rows
+
+
+        int row = 10;
+        int col = 1;
+
+
+
+
+        // row++;
+        // col = 1;
+        int count = 0;
+        foreach (var scan in OrderDetailList)
+        {
+            if (scan.ContainerSelected == false && scan.PalletSelected == false)
+                continue;
+            count += 1;
+            ws.Cell(row, col++).Value = count.ToString().PadLeft(3, '0');
+            ws.Cell(row, col++).Value = scan.ContainerNo;
+            ws.Cell(row, col++).Value = scan.ContainerQRCode;
+            ws.Cell(row, col++).Value = scan.PalletNo;
+            ws.Cell(row, col++).Value = scan.PalletQRCode;
+            ws.Cell(row, col++).Value = scan.WhseSite;
+            if (scan.ContainerSelected)
+                ws.Cell(row, col++).Value = "X";
+            else
+                ws.Cell(row, col++).Value = "";
+            if (scan.PalletSelected)
+                ws.Cell(row, col++).Value = "X";
+            else
+                ws.Cell(row, col++).Value = "";
+            row++;
+            col = 1;
+        }
+        // Apply borders to data rows
+        ws.Range($"A10:H{9 + count}").Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        ws.Range($"A10:H{9 + count}").Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+
+        //Then adjust the columns
+        //ws.Columns().AdjustToContents();
+
+        var stream = new MemoryStream();
+
+        wb.SaveAs(stream);
+        stream.Position = 0;
+
+
+        using var streamRef = new DotNetStreamReference(stream: stream);
+
+        string name = "Order Request " + DateTime.Now.ToString("yyyy-MM-dd") + ".xlsx";
+        await JS.InvokeVoidAsync("downloadFileFromStream", name, streamRef);
+
+        bReport = false;
+        StateHasChanged();
+    }
+}

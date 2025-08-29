@@ -1,0 +1,143 @@
+﻿
+@using MudBlazor
+
+@*@inject WeatherForecastService ForecastService*@
+
+@*
+    Using OwningComponentBase ensures that the service and related services
+    that share its scope are disposed with the component.
+    Otherwise DbContext in ForecastService will live for the life of the
+    connection, which may be problematic if clients stay
+    connected for a long time.
+    We access WeatherForecastService using @Service
+@inherits OwningComponentBase<ReceivingService> 
+*@
+
+@inject DapperContextApi context;
+
+ 
+
+@if (ReceivingParts == null)
+{
+   
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @if(ReceivingParts.Count() > 0)
+    {
+        <MudText Typo="Typo.h5">Receiving @GetCount()</MudText>
+        
+        <MudTable Class="mx-2" Items="@ReceivingParts" T="ReceiveOrder"
+                  Outlined="true" Elevation="1"
+                  Dense="true" Hover="true" Bordered="true" Striped="true">
+
+            <HeaderContent>
+                <MudTh>Receiving ID</MudTh>
+                <MudTh>Skid #</MudTh>
+                <MudTh>Part #</MudTh>
+                <MudTh>Part Quantity</MudTh>
+                <MudTh>Qty Per Bin</MudTh>
+                <MudTh>Operator</MudTh>
+                <MudTh>Date</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.ReceivingId</MudTd>
+                <MudTd>@context.SkidsSerialno</MudTd>
+                <MudTd>@context.PartNumber</MudTd>
+                <MudTd>@context.ReceivedQty</MudTd>
+                <MudTd>@context.QtyPerBin</MudTd>
+                <MudTd>@context.EmployeeName</MudTd>
+                <MudTd>@context.CreatedDate</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+        
+    }
+}
+
+
+@code {
+    private string message = "Not set";
+
+    private string skid { get; set; } = "";
+
+    [Parameter]
+    public string SkidNumber { get; set; } = "";
+
+  
+    private List<ReceiveOrder>? ReceivingParts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        
+        if (SkidNumber == "")
+            ReceivingParts = new();
+        else
+            ReceivingParts = await context.GetReceivingAsync(SkidNumber);
+    }
+
+    private string GetCount()
+    {
+        if (ReceivingParts == null)
+            return "";
+        else
+        {
+            int count = 0;
+            foreach (var item in ReceivingParts)
+            {
+                count += (int)item.ReceivedQty;
+            }
+            if (count == 0)
+                return "";
+            else
+                return "(" + count.ToString() + ")";
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        skid = SkidNumber;
+    }
+
+    protected override async void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if(skid != SkidNumber)
+        {
+            if (SkidNumber != "")
+                ReceivingParts = await context.GetReceivingAsync(SkidNumber);
+            else
+                ReceivingParts = new();
+
+            skid = SkidNumber;
+            StateHasChanged();
+        }
+    }
+
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+       if (parameters.TryGetValue<string>(nameof(SkidNumber), out var value))
+        {
+            if (value is null)
+            {
+                message = "The value of 'Param' is null.";
+            }
+            else
+            {
+                message = $"The value of 'Param' is {value}.";
+            }
+        }
+        return base.SetParametersAsync(parameters);
+    }
+
+    public ReceiveOrder? GetReceivingOrder()
+    {
+        if (ReceivingParts is not null && ReceivingParts.Count != 0)
+            return ReceivingParts[0];
+        else
+            return null;
+    }
+}

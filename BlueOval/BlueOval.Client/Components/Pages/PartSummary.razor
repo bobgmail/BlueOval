@@ -1,0 +1,412 @@
+﻿@page "/PartsSummary"
+
+@using ClosedXML.Excel
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject DapperContextApi sqlService;
+@inject IJSRuntime JS
+
+
+<PageTitle>Parts Summary</PageTitle>
+<style>
+    .selected {
+        background-color: #1E88E5 !important;
+    }
+
+        .selected > td {
+            color: white !important;
+        }
+
+            .selected > td .mud-input {
+                color: white !important;
+            }
+
+</style>
+
+
+    <MudGrid Class="pa-4 gap-2 align-center">
+        <MudItem>
+            <MudText Typo="Typo.h5" Class="ml-3" Color="Color.Success">Pallets Summary</MudText>
+        </MudItem>
+
+        <MudItem>
+            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Class="py-2"
+                       OnClick="GenerateXlsReport"
+                       Color="Color.Primary">Generate Excel Report</MudButton>
+
+        </MudItem>
+        @if (bReport)
+        {
+            <MudItem>
+                <MudProgressCircular Color="Color.Success" Style="height:50px;width:50px;" Indeterminate="true" />
+            </MudItem>
+        }
+    </MudGrid>
+
+
+  
+    <MudSpacer />
+    <MudGrid Class="pa-4 gap-2 align-center">
+         <MudItem xs="8">
+    @if (CyclePartsList is not null && CyclePartsList.Count >0)
+    {
+    <MudText Typo="Typo.h6" Class="ml-3" Color="Color.Info">Pallets Information</MudText>
+        
+        <MudTable Items="@CyclePartsList" T="PartCycle"
+                  Height="700px" FixedHeader="true" 
+                  Outlined="true" Elevation="1"
+                  Dense="true" Hover="true" Bordered="true" Striped="true">
+
+
+
+            <HeaderContent>
+                <MudTh>Container #</MudTh>
+                <MudTh>Container QR Code</MudTh>
+                <MudTh>Pallet/Box QR Code</MudTh>
+                <MudTh Style="min-width:200px;">Pallet # / Box #</MudTh>
+                    <MudTh Style="min-width:110px;">Location</MudTh>
+                    <MudTh Style="min-width:200px;">Equipment Op #</MudTh>
+                    <MudTh Style="min-width:300px;">Section / Component</MudTh>
+                    <MudTh Style="min-width:300px;">Process Equipment</MudTh>
+                    <MudTh >Section / Component Name</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.ContainerNo</MudTd>
+                <MudTd>@context.ContainerQRCode</MudTd>
+                <MudTd>@context.PalletQRCode</MudTd>
+                <MudTd>@context.PalletNo</MudTd>
+                <MudTd>@context.Location</MudTd>
+                <MudTd>@context.EquipmentOp</MudTd>
+                <MudTd>@context.SectionComp</MudTd>
+                <MudTd>@context.ProcessEquip</MudTd>
+                <MudTd>@context.SectionCompName</MudTd>
+
+            </RowTemplate>
+
+        </MudTable>
+    }
+        </MudItem>
+        <MudItem >
+@if (LocationInfoList is not null && LocationInfoList.Count > 0)
+{
+    <MudText Typo="Typo.h6" Class="ml-3" Color="Color.Info">Locations Information</MudText>
+
+    <MudTable Items="@LocationInfoList" T="LocationInfo"
+              Height="700px" FixedHeader="true"
+              Outlined="true" Elevation="1"
+              Dense="true" Hover="true" Bordered="true" Striped="true">
+
+
+
+        <HeaderContent>
+            <MudTh>Area</MudTh>
+            <MudTh>Capacity</MudTh>
+            <MudTh>Occupied</MudTh>
+            <MudTh>Percent</MudTh>
+        </HeaderContent>
+
+        <RowTemplate>
+            <MudTd>@context.LocationType</MudTd>
+            <MudTd>@context.LocationCount</MudTd>
+            <MudTd>@context.LocationUsed.Count</MudTd>
+            <MudTd>@context.PercentUsed()</MudTd>
+        </RowTemplate>
+
+    </MudTable>
+}
+
+
+
+        </MudItem>
+    </MudGrid>
+ 
+  
+
+@code {
+
+
+    private async Task OnRowClicked(TableRowClickEventArgs<PartCycleCtrl> args)
+    {
+        // if (LastClickTime.HasValue && (DateTime.Now - LastClickTime.Value).TotalMilliseconds < 500)
+        // {
+        //     Double-click logic
+        //     await HandleDoubleClick(args.Item);
+        //     LastClickTime = null;
+        // }
+        // else
+        {
+            // Single-click logic
+            SelectCycleCtrlProcess(args.Item);
+            //SelectedPartCtrl = args.Item;
+            //LastClickTime = DateTime.Now;
+        }
+    }
+    private MudTable<PartCycleCtrl> mudTable;
+    //private PartCycleCtrl selectedItem1 = null;
+    private int selectedRowNumber = -1;
+    private string SelectedRowClassFunc(PartCycleCtrl element, int rowNumber)
+    {
+        //if (selectedRowNumber == rowNumber)     //Selected Row: None
+        //{
+        //    selectedRowNumber = -1;
+
+        //    return string.Empty;
+        //}
+        //else
+        if (mudTable.SelectedItem != null && mudTable.SelectedItem.Equals(element))    //Selected Row: {rowNumber}
+        {
+            selectedRowNumber = rowNumber;
+
+            return "selected";
+        }
+        else
+        {
+            return string.Empty;
+        }
+    }
+    private string searchString1 = "";
+    private bool FilterFunc1(PartCycleCtrl element) => FilterFunc(element, searchString1);
+    private bool FilterFunc(PartCycleCtrl element, string searchString)
+    {
+        return true;
+    }
+
+
+    public List<PartCycle> CyclePartsList{ get; set; }
+    public List<LocationInfo> LocationInfoList{ get; set; }
+
+    PartCycleCtrl? SelectedPartCtrl { get; set; } = new PartCycleCtrl();
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+    }
+
+    protected  override async Task OnInitializedAsync()
+    {
+        CyclePartsList = await sqlService.GetInventoryCycleInfoBattery();
+        LocationInfoList = await sqlService.GetLocationInfoListBattery();
+        foreach (var part in CyclePartsList)
+        {
+            if(part.Location.StartsWith("P"))
+            {
+                var loc = LocationInfoList.Where(x => x.LocationType == "P").FirstOrDefault();
+                if(loc != null)
+                {
+                    loc.LocationUsed.Add(part.Location);
+                }
+            }
+            else if (part.Location.StartsWith("LD"))
+            {
+                var loc = LocationInfoList.Where(x => x.LocationType == "LD").FirstOrDefault();
+                if (loc != null)
+                {
+                    loc.LocationUsed.Add(part.Location);
+                }
+            }
+            else if (part.Location.StartsWith("TA") || part.Location.StartsWith("TB"))
+            {
+                var loc = LocationInfoList.Where(x => x.LocationType == "T1").FirstOrDefault();
+                if (loc != null)
+                {
+                    loc.LocationUsed.Add(part.Location);
+                }
+            }
+            else if (part.Location.StartsWith("TC") || part.Location.StartsWith("TD"))
+            {
+                var loc = LocationInfoList.Where(x => x.LocationType == "T2").FirstOrDefault();
+                if (loc != null)
+                {
+                    loc.LocationUsed.Add(part.Location);
+                }
+            }
+            else if (part.Location.StartsWith("TE") || part.Location.StartsWith("TF"))
+            {
+                var loc = LocationInfoList.Where(x => x.LocationType == "T3").FirstOrDefault();
+                if (loc != null)
+                {
+                    loc.LocationUsed.Add(part.Location);
+                }
+            }
+            else if (part.Location.StartsWith("RR") || part.Location == "RingRoad" || part.Location == "Ring Road")
+            {
+                var loc = LocationInfoList.Where(x => x.LocationType == "Ring Road").FirstOrDefault();
+                if (loc != null)
+                {
+                    loc.LocationUsed.Add(part.Location);
+                }
+            }
+
+            else if (part.Location.StartsWith("WHSE") && !part.Location.StartsWith("WHSE-Q") && !part.Location.Contains("BOUND"))
+            {
+                if(part.LocationCode is not null && part.LocationCode.StartsWith("20"))
+                {
+                    var loc = LocationInfoList.Where(x => x.LocationType == "WHSE 20ft").FirstOrDefault();
+                    if (loc != null)
+                    {
+                        loc.LocationUsed.Add(part.Location);
+                    }
+                }
+                else if (part.LocationCode is not null && part.LocationCode.StartsWith("40"))
+                {
+                    var loc = LocationInfoList.Where(x => x.LocationType == "WHSE 40ft").FirstOrDefault();
+                    if (loc != null)
+                    {
+                        loc.LocationUsed.Add(part.Location);
+                    }
+                }
+                // var loc = LocationInfoList.Where(x => x.LocationType == "WHSE").FirstOrDefault();
+                // if (loc != null)
+                // {
+                //     loc.LocationUsed++;
+                // }
+            }
+        }
+    }
+
+    void SelectCycleCtrlProcess(PartCycleCtrl cycleCtrl)
+    {
+        // if(cycleCtrl != SelectedPartCtrl)
+        {
+            SelectedPartCtrl = cycleCtrl;
+            //CurrentCyclePartsList = CyclePartsList.GetRange(SelectedPartCtrl.IndexS, SelectedPartCtrl.IndexD - SelectedPartCtrl.IndexS + 1);
+        }
+    }
+
+    void ShippedClicked(PartCycle part, object checkedValue)
+    {
+        if ((bool)checkedValue)
+        {
+            part.IsShipped = true;
+            SelectedPartCtrl.CycleBinQtySum -= part.BinQty;
+            SelectedPartCtrl.CyclePartQtySum -= part.PartQty;
+
+            SelectedPartCtrl.IsCountModified = true;
+        }
+        else
+        {
+            part.IsShipped = false;
+            SelectedPartCtrl.CycleBinQtySum += part.BinQty;
+            SelectedPartCtrl.CyclePartQtySum += part.PartQty;
+
+            SelectedPartCtrl.SetCountModified(CyclePartsList);
+        }
+
+    }
+
+    bool bReport = false;
+    private async Task GenerateXlsReport(MouseEventArgs e)
+    {
+        CyclePartsList = await sqlService.GetInventoryCycleInfoBattery();
+
+        if (CyclePartsList is null || CyclePartsList.Count  == 0)
+            return;
+
+        if (bReport)
+            return;
+
+        bReport = true;
+        StateHasChanged();
+        IXLWorkbook wb = new XLWorkbook();
+        IXLWorksheet ws = wb.Worksheets.Add("Parts Summary");
+
+        int row = 1;
+        int col = 1;
+        ws.Cell(row, col).Value = "Container #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Container QR Code";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Pallet # / Box #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Pallet/Box QR Code";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Location";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Equipment Op #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Section / Component";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Process Equipment";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Section / Component Name";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col + 1).Value = $"Reported at: {DateTime.Now.ToString("yyyy-MM-dd hh:mm tt")}";
+
+        ws.SheetView.Freeze(1, 0); // Freezes the first row
+
+        row++;
+        col = 1;
+
+        foreach (var scan in CyclePartsList)
+        {
+            ws.Cell(row, col++).Value = scan.ContainerNo;
+            ws.Cell(row, col++).Value = scan.ContainerQRCode;
+            ws.Cell(row, col++).Value = scan.PalletNo;
+            ws.Cell(row, col++).Value = scan.PalletQRCode;
+            ws.Cell(row, col++).Value = scan.Location;
+            ws.Cell(row, col++).Value = scan.EquipmentOp;
+            ws.Cell(row, col++).Value = scan.SectionComp;
+            ws.Cell(row, col++).Value = scan.ProcessEquip;
+            ws.Cell(row, col++).Value = scan.SectionCompName;
+
+            row++;
+            col = 1;
+        }
+
+        //Then adjust the columns
+        ws.Columns().AdjustToContents();
+
+        IXLWorksheet wss = wb.Worksheets.Add("Storage Location");
+
+        row = 1;
+        col = 1;
+        wss.Cell(row, col).Value = "Area";
+        wss.Cell(row, col++).Style.Font.Bold = true;
+        wss.Cell(row, col).Value = "Capacity";
+        wss.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        wss.Cell(row, col++).Style.Font.Bold = true;
+        wss.Cell(row, col).Value = "Occupied";
+        wss.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        wss.Cell(row, col++).Style.Font.Bold = true;
+        wss.Range("C1:D1").Merge();
+        col++;
+        wss.Cell(row, col + 1).Value = $"Reported at: {DateTime.Now.ToString("yyyy-MM-dd hh:mm tt")}";
+
+        wss.SheetView.Freeze(1, 0); // Freezes the first row
+
+        row++;
+        col = 1;
+
+        foreach (var scan in LocationInfoList)
+        {
+            wss.Cell(row, col++).Value = scan.LocationType;
+            wss.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            wss.Cell(row, col++).Value = scan.LocationCount;
+            wss.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            wss.Cell(row, col++).Value = scan.LocationUsed.Count;
+            wss.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            wss.Cell(row, col++).Value = scan.PercentUsed();
+
+            row++;
+            col = 1;
+        }
+
+        //Then adjust the columns
+        //wss.Columns().AdjustToContents();
+        var stream = new MemoryStream();
+
+        wb.SaveAs(stream);
+        stream.Position = 0;
+
+
+        using var streamRef = new DotNetStreamReference(stream: stream);
+
+        string name = "Inventory Summary " + DateTime.Now.ToString("yyyy-MM-dd") + ".xlsx";
+        await JS.InvokeVoidAsync("downloadFileFromStream", name, streamRef);
+
+        bReport = false;
+        StateHasChanged();
+    }
+}

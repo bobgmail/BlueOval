@@ -1,0 +1,144 @@
+﻿
+@using MudBlazor
+
+
+@inject DapperContextApi context;
+ 
+
+@if (Movements == null)
+{
+    
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @if (Movements.Count() > 0)
+    {
+        <MudText Typo="Typo.h5">Location Movements</MudText>
+
+        <MudTable Class="mx-2" Items="@Movements" T="InventoryMovementDetails"
+                  Outlined="true" Elevation="1"
+                  Dense="true" Hover="true" Bordered="true" Striped="true">
+
+            <HeaderContent>
+                <MudTh>Skid #</MudTh>
+                <MudTh>Part #</MudTh>
+                <MudTh>Part Quantity</MudTh>
+                <MudTh>From Location</MudTh>
+                <MudTh>o Location</MudTh>
+                <MudTh>Bin Quantity</MudTh>
+                <MudTh>Operator</MudTh>
+                <MudTh>Date</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.SourceScanBoxBin</MudTd>
+                <MudTd>@context.PartNo</MudTd>
+                <MudTd>@context.PartQuantity</MudTd>
+                <MudTd>@context.CurrentLocation</MudTd>
+                <MudTd>@context.DestinationLocation</MudTd>
+                <MudTd>@context.BinQuantity</MudTd>
+                <MudTd>@context.EmployeeName</MudTd>
+                <MudTd>@context.CreatedDate</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+        
+    }
+}
+
+
+@code {
+
+    private string message = "Not set";
+
+    private string skid { get; set; } = "";
+
+    [Parameter]
+    public string SkidNumber { get; set; } = "";
+
+
+    //[Parameter]
+    //public List<LocationsWithinWarehouse> Locations? { get; set; }=null;
+
+    private List<InventoryMovementDetails>? Movements;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // We access WeatherForecastService using @Service
+        if (SkidNumber == "")
+            Movements = new();
+        else
+            Movements = await context.GetMovementsAsync(SkidNumber);
+        foreach (var move in Movements)
+        {
+            if (move.CurrentLocation == "Unknow For Rescan")
+                move.CurrentLocation = "Unknown For Rescan";
+            if (move.DestinationLocation == "Unknow For Rescan")
+                move.DestinationLocation = "Unknown For Rescan";
+        }
+    }
+
+    private string GetCount()
+    {
+        if (Movements == null)
+            return "";
+        else
+        {
+            int count = 0;
+            foreach (var item in Movements)
+            {
+                count += (int)item.PartQuantity;
+            }
+            if (count == 0)
+                return "";
+            else
+                return "(" + count.ToString() + ")";
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        skid = SkidNumber;
+    }
+
+    protected override async void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if(skid != SkidNumber)
+        {
+            if (SkidNumber != "")
+                Movements = await context.GetMovementsAsync(SkidNumber);
+            else
+                Movements = new();
+
+            foreach (var move in Movements)
+            {
+                if (move.CurrentLocation == "Unknow For Rescan")
+                    move.CurrentLocation = "Unknown For Rescan";
+                if (move.DestinationLocation == "Unknow For Rescan")
+                    move.DestinationLocation = "Unknown For Rescan";
+            }
+
+            skid = SkidNumber;
+            StateHasChanged();
+        }
+    }
+
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+       if (parameters.TryGetValue<string>(nameof(SkidNumber), out var value))
+        {
+            if (value is null)
+            {
+                message = "The value of 'Param' is null.";
+            }
+            else
+            {
+                message = $"The value of 'Param' is {value}.";
+            }
+        }
+        return base.SetParametersAsync(parameters);
+    }
+}

@@ -1,0 +1,143 @@
+﻿
+@using MudBlazor
+
+
+@inject DapperContextApi context;
+
+@if (LoadTransactions == null)
+{
+  
+    <p><em>Loading...</em></p>
+}
+else
+{
+
+
+    @if (LoadTransactions.Count() > 0)
+    {
+        <MudText Typo="Typo.h5">Shipping @GetCount()</MudText>
+
+        <MudTable Class="mx-2" Items="@LoadTransactions" T="ShippingLoadTransactions"
+                  Outlined="true" Elevation="1"
+                  Dense="true" Hover="true" Bordered="true" Striped="true">
+
+            <HeaderContent>
+                <MudTh>Shipping ID</MudTh>
+                <MudTh>Shipping Detail ID</MudTh>
+                <MudTh>Part #</MudTh>
+                <MudTh>Skid #</MudTh>
+                <MudTh>Trailer Code</MudTh>
+                <MudTh>Operator</MudTh>
+                <MudTh>Part Quantity</MudTh>
+                <MudTh>Date</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.ShippingId</MudTd>
+                <MudTd>@context.ShippingDetailId</MudTd>
+                <MudTd>@context.PartNumber</MudTd>
+                <MudTd>@context.SkidNo</MudTd>
+                <MudTd>@context.TrailerCode</MudTd>
+                <MudTd>@context.PartQuantity</MudTd>
+                <MudTd>@context.EmployeeName</MudTd>
+                <MudTd>@context.CreatedDate</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+        
+    }
+}
+
+
+@code {
+    private string message = "Not set";
+
+    private string skid { get; set; } = "";
+
+    [Parameter]
+    public string SkidNumber { get; set; } = "";
+
+    Dictionary<int, string> PartId2Name = new();
+
+
+    //[Parameter]
+    //public List<LocationsWithinWarehouse> Locations? { get; set; }=null;
+
+    private List<ShippingLoadTransactions>? LoadTransactions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // We access WeatherForecastService using @Service
+        if (SkidNumber == "")
+            LoadTransactions = new();
+        else
+            LoadTransactions = await context.GetShippingAsync(SkidNumber);
+    }
+
+
+
+  
+
+    private string GetCount()
+    {
+        if (LoadTransactions == null)
+            return "";
+        else
+        {
+            int count = 0;
+            foreach (var item in LoadTransactions)
+            {
+                count += (int)item.PartQuantity;
+            }
+            if (count == 0)
+                return "";
+            else
+                return "(" + count.ToString() + ")";
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        skid = SkidNumber;
+    }
+
+    protected override async void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if(skid != SkidNumber)
+        {
+            if (SkidNumber != "")
+                LoadTransactions = await context.GetShippingAsync(SkidNumber);
+            else
+                LoadTransactions = new();
+
+            skid = SkidNumber; 
+            StateHasChanged();
+        }
+    }
+
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+       if (parameters.TryGetValue<string>(nameof(SkidNumber), out var value))
+        {
+            if (value is null)
+            {
+                message = "The value of 'Param' is null.";
+            }
+            else
+            {
+                message = $"The value of 'Param' is {value}.";
+            }
+        }
+        return base.SetParametersAsync(parameters);
+    }
+
+    public ShippingLoadTransactions? GetShippingLoadTransaction()
+    {
+        if (LoadTransactions is not null && LoadTransactions.Count != 0)
+            return LoadTransactions[0];
+        else
+            return null;
+    }
+}

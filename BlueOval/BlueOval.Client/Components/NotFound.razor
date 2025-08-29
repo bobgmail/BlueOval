@@ -1,0 +1,53 @@
+﻿@* Pages/NotFound.razor *@
+@page "/notfound"
+@using BlueOval.Client.Components.Layout
+@using MudBlazor
+@inject NavigationManager navigationManager;
+@layout MainLayoutNoNav
+
+<MudMainContent>
+    <MudContainer MaxWidth="MaxWidth.False" Class="d-flex align-center justify-center" Style="height: 80vh;">
+        <MudPaper Class="pa-12 text-center" Elevation="25" Style="border-radius: 16px;">
+            @* <MudIcon Icon="@Icons.Material.Filled.ErrorOutline"
+                     Color="Color.Primary"
+                     Style="font-size: 6rem; margin-bottom: 2rem;" /> *@
+
+            <MudIcon Style="width: 100px; height: 100px; margin-bottom: 2rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--mud-palette-warning)">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                </svg>
+            </MudIcon>
+
+            <MudText Typo="Typo.h1" Class="mb-4" Color="Color.Primary">404</MudText>
+
+            <MudText Typo="Typo.h4" Class="mb-6">Page Not Found</MudText>
+
+            <MudText Class="mb-8" Style="max-width: 500px; margin: 0 auto;">
+                The page you're looking for is unavailable.
+            </MudText>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       EndIcon="@Icons.Material.Filled.Home"
+                       Href="/"
+                       Class="mt-2">
+                Return to Home
+            </MudButton>
+
+            @* <div class="mt-8">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Need help? <MudLink Href="/contact" Color="Color.Primary">Contact Support</MudLink>
+                </MudText>
+            </div> *@
+        </MudPaper>
+    </MudContainer>
+</MudMainContent>
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Optional: Log the 404 error
+        Console.WriteLine($"404 encountered at: {navigationManager.Uri}");
+    }
+}

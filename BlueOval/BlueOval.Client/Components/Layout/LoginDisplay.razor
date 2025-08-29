@@ -1,0 +1,58 @@
+
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthService auth
+@inject NavigationManager navigationManager;
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<AuthorizeView>
+    <Authorized>
+        @*<a href="Identity/Account/Manage">Hello, @context.User.Identity?.Name</a>*@
+        Hello, @context.User.Identity?.Name
+        <MudButton ButtonType="ButtonType.Button" OnClick="HandleValidSubmit" 
+           Variant="Variant.Text" Color="Color.Warning" Class="ml-5 mr-3">Logout
+       </MudButton>
+          @* Style="@($"color:{Colors.LightGreen.Accent3}; background:{Color.Primary};")"*@
+ 
+       
+@*        <form method="post" action="/logout">
+            <input name="__RequestVerificationToken" type="hidden" value="@_tokenProvider.AntiForgeryToken" />
+            <button type="submit" class="nav-link btn btn-link">Log out</button>
+        </form>
+*@  
+    </Authorized>
+    <NotAuthorized>
+@*        <a href="Identity/Account/Register">Register</a>*@  
+      
+          @*<a href="Identity/Account/Login">Log in</a>*@
+
+           @*<div @onclick="@(() => Modal.Show<LoginDlg>("User Login"))" class="btn btn-link">Log in</div>*@
+              @* <div @onclick="@Login" class="btn btn-link">Log in</div>*@
+    </NotAuthorized>
+</AuthorizeView>
+@code {
+
+
+
+    private async void HandleValidSubmit()
+    {
+        try
+        {
+            
+            await auth.Logout();
+            ((ApiAuthenticationStateProvider)AuthenticationStateProvider).NotifyUserAuthentication();
+            navigationManager.NavigateTo("/ToLogin", forceLoad: false);
+            
+        }
+        catch (Exception ex)
+        {
+            StateHasChanged();
+        }
+    }
+}
+@*It also exposes a context parameter which can be used to view the currently logged in users information. 
+  As well as the following 3 templates, two of which you can see used in the code snippet above.
+
+    NotAuthorized - Any content placed in this template will only be shown to non-authorised users.
+    Authorizing - Any content placed in this template will be shown during asyncronous authorisation.
+    Authorized - Any content placed in this template will only be shown to authorised users.*@

@@ -1,0 +1,281 @@
+﻿@page "/"
+@using ClosedXML.Excel;
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject DapperContextApi sqlService;
+@inject IJSRuntime JS
+
+<PageTitle>Pallets Inbound Query</PageTitle>
+<MudForm @ref="form" @bind-IsValid="@success" @bind-Errors="@errors">
+    <MudGrid Class="pa-4 gap-2 align-center">
+        <MudItem >
+            <MudText Typo="Typo.h5" Class="ml-3" Color="Color.Success">Pallets Inbound Query</MudText>
+        </MudItem>
+        <MudItem>
+            <MudSelect Dense="true" T="int" Label="Select Shift Time" Variant="Variant.Outlined" @bind-Value="LocationId" AnchorOrigin="Origin.BottomCenter">
+                <MudSelectItem T="int" Value="0">@GetNightStr(false)</MudSelectItem>
+                <MudSelectItem T="int" Value="1">@GetNightStr(true)</MudSelectItem>
+                <MudSelectItem T="int" Value="2">0:00 AM~24:00 PM</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+
+        <MudItem >
+            <MudDateRangePicker Label="Please Select Date" DateFormat="dd/MM/yyyy" Variant="Variant.Outlined"  TitleDateFormat="dddd, dd. MMMM" @bind-DateRange="RangeDateValue" />
+        </MudItem>
+
+        <MudItem >
+            <MudText Typo="Typo.h6" Class="ml-3" Color="Color.Warning">@GetPalletInfo()</MudText>
+        </MudItem>
+        <MudItem>
+            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Class="py-2"
+                       OnClick="DownloadFileFromStream"
+                       Color="Color.Primary">Generate Excel Report</MudButton>
+
+        </MudItem>
+        @if (isUpdating != 0)
+        {
+            <MudItem>
+             <MudProgressCircular Color="Color.Success" Style="height:50px;width:50px;" Indeterminate="true" />
+            </MudItem>
+        }
+    </MudGrid>
+</MudForm>
+
+<MudGrid Spacing="1">
+    <MudItem xs="12">
+   
+        <MudTable Class="mx-2" Items="@Pallets" @ref="mudTable" T="PalletInfo"
+                      Height="700px" FixedHeader="true" 
+                  Outlined="true" Elevation="1" 
+                  Dense="true" Hover="true" Bordered="true" Striped="true">
+   
+            <HeaderContent>
+                <MudTh>Received Date</MudTh>
+                <MudTh>Container #</MudTh>
+                <MudTh>Container QR Code</MudTh>
+                <MudTh>Pallet # / Box #</MudTh>
+                <MudTh>Pallet/Box QR Code</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd >@context.CreatedDate.ToString("MMMdd@hh:mmtt")</MudTd>
+                <MudTd>@context.ContainerNo</MudTd>
+                <MudTd>@context.ContainerQRCode</MudTd>
+                <MudTd>@context.PalletNo</MudTd>
+                <MudTd>@context.PalletQRCode</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+       
+    </MudItem>
+ 
+
+</MudGrid>
+
+
+
+
+@code{
+    int isUpdating = 0;
+    private bool success;
+    private MudForm form;
+    private string[] errors = { };
+    DateRange _dateRange = new DateRange(DateTime.Now.Date, DateTime.Now.Date);
+    private DateRange RangeDateValue
+    {
+        get => _dateRange;
+        set
+        {
+            _dateRange = value;
+
+            OnRangeSelect(value);
+        }
+    }
+
+    private string GetNightStr(bool bNight)
+    {
+        int day = SiteControl.GetShiftStart(0);
+        int night =  SiteControl.GetShiftStart(1);
+
+        if (bNight)
+            return night + ":00 PM~" + day + ":00 AM";
+        return day + ":00 AM~" + night + ":00 PM";
+    }
+
+    int _LocationId = 2;
+    public  int LocationId {
+        get
+        {
+            return _LocationId;
+        }
+        set
+        {
+            int n = _LocationId;
+            _LocationId = value;
+            if(n != value)
+            {
+                OnRangeSelect(RangeDateValue);
+                // await FetchRangeInfos();
+                //StateHasChanged();
+            }
+
+            // FetchPartsAtLocation();
+            // SetFocus();
+        }
+    }//= -1;
+
+   
+    public async void OnRangeSelect(DateRange range)
+    {
+        //Use range.Start and range.End here
+        await FetchRangeInfos();
+        StateHasChanged();
+    }
+
+    private async Task FetchRangeInfos()
+    {
+       
+        DateTime s = RangeDateValue.Start.Value.Date;// StartDate.Value.Date;
+        DateTime e = RangeDateValue.End.Value.Date.AddHours(24); // EndDate.Value.Date.AddHours(24);
+     
+        Pallets = await sqlService.GetInboundWithTimeRangeBattery(s, e, LocationId);
+        //PartSum =  await sqlService.GetInboundPartsSummary(s,e,LocationId);
+
+    }
+
+    private List<PalletInfo> Pallets = new List<PalletInfo>();
+
+    protected string GetPalletInfo()
+    {
+        string ret = "Total " + Pallets.Count + " Pallets";
+        return ret;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchRangeInfos();
+    }
+    private MudTable<PalletInfo> mudTable;
+    private PalletInfo selectedItem1 = null;
+    private int selectedRowNumber = -1;
+    private string SelectedRowClassFunc(PalletInfo element, int rowNumber)
+    {
+        //if (selectedRowNumber == rowNumber)     //Selected Row: None
+        //{
+        //    selectedRowNumber = -1;
+
+        //    return string.Empty;
+        //}
+        //else
+        if (mudTable.SelectedItem != null && mudTable.SelectedItem.Equals(element))    //Selected Row: {rowNumber}
+        {
+            selectedRowNumber = rowNumber;
+
+            return "selected";
+        }
+        else
+        {
+            return string.Empty;
+        }
+    }
+    private string searchString1 = "";
+    private bool FilterFunc1(PalletInfo element) => FilterFunc(element, searchString1);
+    private bool FilterFunc(PalletInfo element, string searchString)
+    {
+        return true;
+    }
+    private async Task<Stream> GetExcelFile()
+    {
+        string name = "Inbound " + GetPalletInfo();
+        IXLWorkbook wb = new XLWorkbook();
+        IXLWorksheet ws = wb.Worksheets.Add(name);
+
+        int row = 1;
+        int col = 1;
+        ws.Cell(row, col).Value = "Received Date";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Container #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Container QR Code";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Pallet # / Box #";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+        ws.Cell(row, col).Value = "Pallet/Box QR Code";
+        ws.Cell(row, col++).Style.Font.Bold = true;
+
+        ws.Cell(row, col + 1).Value = $"Reported at: {DateTime.Now.ToString("yyyy-MM-dd hh:mm tt")}"; 
+
+        ws.SheetView.Freeze(1, 0); // Freezes the first row
+
+        row++;
+        col = 1;
+        foreach (var scan in Pallets)
+        {
+            ws.Cell(row, col++).Value = scan.CreatedDate.ToString("MMMdd@hh:mmtt");
+            ws.Cell(row, col++).Value = scan.ContainerNo;
+            ws.Cell(row, col++).Value = scan.ContainerQRCode;
+            ws.Cell(row, col++).Value = scan.PalletNo;
+            ws.Cell(row, col++).Value = scan.PalletQRCode;
+
+            row++;
+            col = 1;
+        }
+
+      
+
+        //Then adjust the columns
+        ws.Columns().AdjustToContents();
+        var stream = new MemoryStream();
+
+        wb.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
+    }
+
+
+    private async Task DownloadFileFromStream()
+    {
+        if (LocationId == -1 || Pallets == null || Pallets.Count == 0)
+            return;
+        isUpdating = 1;
+        StateHasChanged();
+        await Task.Delay(100);
+        var fileStream = await GetExcelFile();
+
+
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+
+        string FileName = "Inbound "; 
+        switch(LocationId)
+        {
+            case 0:
+                FileName += "6AM~6PM";
+                break;
+            case 1:
+                FileName += "6PM~6AM";
+                break;
+            case 2:
+                FileName += "0AM~24PM";
+                break;
+        }
+        FileName += " " + RangeDateValue.Start.Value.Date.ToString("yyyy-MM-dd") + "~" + RangeDateValue.End.Value.Date.ToString("yyyy-MM-dd") + ".xlsx";
+        await JS.InvokeVoidAsync("downloadFileFromStream", FileName, streamRef);
+        isUpdating = 0;
+        StateHasChanged();
+        await Task.Delay(100);
+       
+    }
+
+    private async void GenerateTheReport()
+    {
+
+       
+        await DownloadFileFromStream();
+
+
+        StateHasChanged();
+
+    }
+
+   
+}

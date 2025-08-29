@@ -1,0 +1,105 @@
+﻿
+@using Microsoft.AspNetCore.WebUtilities
+@using BlueOval.Client.Components.Layout
+@using Microsoft.AspNetCore.Http.Extensions
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager NavManager
+@layout MainLayoutNoNav 
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject DapperContextApi sqlService
+@inject AuthService auth
+@inject NavigationManager navigationManager
+@inject IJSRuntime JS
+
+<EditForm Model="@loginVm" OnValidSubmit="HandleLogin" OnInvalidSubmit="HandleInvalidSubmit">
+    <DataAnnotationsValidator />
+    <MudPaper Class="d-flex justify-center my-16" Elevation="0">
+        <MudItem xs="12" sm="9" md="6">
+            <MudCard>
+                <MudCardContent>
+                    <div class="mb-3" style="@($"color:{Colors.Red.Accent3}; background:{Color.Primary};")"> @errMsg</div>
+  
+                    <MudTextField Label="User Name *" Class="mt-3"
+                                  @bind-Value="loginVm.Name" For="@(() => loginVm.Name)" />
+                    <MudTextField Label="Password *" Class="mt-3"
+                                  @bind-Value="loginVm.Password" For="@(() => loginVm.Password)" InputType="InputType.Password" />
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Disabled="@isLoading" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto mr-3">
+                        @if (isLoading)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            <MudText Class="ms-2">Logging In...</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Login</MudText>
+                        }
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudPaper>
+</EditForm>
+
+
+@code {
+
+    private LoginVm loginVm = new LoginVm();
+    private bool isLoading = false;
+    
+    private string errMsg = "";
+
+    private  void HandleInvalidSubmit()
+    {
+
+        //await JS.InvokeVoidAsync("scrollToFirstError");
+        // Process the valid form
+    }
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errMsg = "";
+        try
+        {
+            // Use the AuthService to call the API
+            bool success = await auth.Login(loginVm);
+            if (success)
+            {
+                // IMPORTANT: Notify Blazor's auth system that the state has changed.
+                // The ApiAuthenticationStateProvider (which you should have) will now
+                // be able to fetch the user's claims from an authenticated endpoint.
+                ((ApiAuthenticationStateProvider)AuthenticationStateProvider).NotifyUserAuthentication();
+                
+              
+            }
+            else
+            {
+                errMsg = "Invalid User Name or Password.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errMsg = "An unexpected error occurred during login.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+  
+
+    private bool IsLocalUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return false;
+
+        // Check if the URL is relative
+        return !url.StartsWith("http://") && !url.StartsWith("https://");
+    }
+
+    protected override void OnInitialized()
+    {
+    
+    }
+}

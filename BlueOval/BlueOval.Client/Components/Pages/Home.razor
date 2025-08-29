@@ -1,0 +1,179 @@
+﻿@page "/HomeX"
+@attribute [Authorize]
+@using Append.Blazor.Printing
+@using Microsoft.AspNetCore.Authorization
+
+@inject IJSRuntime JS
+
+@inject IPrintingService PrintingService
+@inject DapperContextApi context
+
+<PageTitle>Label Print</PageTitle>
+
+<style>
+    .selected {
+    background-color: #1E88E5 !important;
+    }
+
+    .selected > td {
+    color: white !important;
+    }
+
+    .selected > td .mud-input {
+    color: white !important;
+    }
+
+   
+</style>
+
+<audio id="player">
+    <source id="playerSource" src="" />
+</audio>
+
+  @if (bolInfoList != null && bolInfoList.Count > 0)
+    {
+        <MudTable Class="mt-4" Items="@bolInfoList" @ref="mudTable" T="LabelPrintBolInfo"
+                  Elevation="1" Height="700px" FixedHeader="true"
+                  Dense="true" Hover="true" Bordered="true" Striped="true"
+                  Filter="new Func<LabelPrintBolInfo,bool>(FilterFunc1)"
+                  @bind-SelectedItem="selectedItem1"
+                  RowClassFunc="@SelectedRowClassFunc">
+
+            <ToolBarContent>
+                <MudText Class="mr-4" Typo="Typo.h6" Color="Color.Success">Print Labels</MudText>
+                @if (isLoading != 0)
+                {
+                    <MudProgressCircular Color="Color.Success" Style="height:50px;width:50px;" Indeterminate="true" />
+                }
+            </ToolBarContent>
+
+            <HeaderContent>
+                <MudTh>Receiving ID</MudTh>
+                <MudTh>Container #</MudTh>
+                <MudTh>Pallet/Box Count</MudTh>
+                <MudTh>Supplier Name</MudTh>
+                <MudTh>Customer Name</MudTh>
+                <MudTh>Carrier Name </MudTh>
+                <MudTh>TrailerNo</MudTh>
+                <MudTh>Receiving Date</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.ReceivingID</MudTd>
+                <MudTd>@context.BOL</MudTd>
+                <MudTd>@context.LabelsCount</MudTd>
+                <MudTd>@context.SupplierName</MudTd>
+                <MudTd>@context.CustomerName</MudTd>
+                <MudTd>@context.CarrierName</MudTd>
+                <MudTd>@context.TrailerNo</MudTd>
+                <MudTd>@context.ReceivingDate</MudTd>
+                 <MudTd >
+                   
+                        <MudTooltip Text="Print Label">
+                    <MudFab @onclick="@( () => { selectedItem1 = context;  PrintLabels(context.ReceivingID, context.BOL); })" Color="Color.Info" StartIcon="@Icons.Material.Filled.Print" Size="Size.Small" IconSize="Size.Small" />
+                        </MudTooltip>
+                 </MudTd>
+            </RowTemplate>
+
+
+        </MudTable>
+    }
+<MudDivider />
+
+@code
+{
+    //Set Folder Permissions (Server-Side)
+    //Labels Directory: C:\inetpub\wwwroot\BlueOvalBatteryPark\wwwroot\Labels Permissions:
+    //Windows: Grant "Read" permission to the IIS_IUSRS group. IUSR (Anonymous user)
+
+    private List<LabelPrintBolInfo> bolInfoList = new List<LabelPrintBolInfo>();
+    private MudTable<LabelPrintBolInfo> mudTable;
+    private LabelPrintBolInfo selectedItem1 = null;
+    private int selectedRowNumber = -1;
+    
+    private int isLoading = 0;
+
+    private string SelectedRowClassFunc(LabelPrintBolInfo element, int rowNumber)
+    {
+        //if (selectedRowNumber == rowNumber)     //Selected Row: None
+        //{
+        //    selectedRowNumber = -1;
+
+        //    return string.Empty;
+        //}
+        //else
+        if (mudTable.SelectedItem != null && mudTable.SelectedItem.Equals(element))    //Selected Row: {rowNumber}
+        {
+            selectedRowNumber = rowNumber;
+
+            return "selected";
+        }
+        else
+        {
+            return string.Empty;
+        }
+    }
+    private string searchString1 = "";
+    private bool FilterFunc1(LabelPrintBolInfo element) => FilterFunc(element, searchString1);
+    private bool FilterFunc(LabelPrintBolInfo element, string searchString)
+    {
+        return true;
+    }
+    
+    
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        {
+            //await Task.Delay(1000);
+            //await PlaySucess();
+
+        }
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        // scanInfoList = await pdfTool.GetScanInfoListAsync();
+        bolInfoList = await context.GetLabelPrintBolsAsync();
+        //await Task.Delay(1000);
+        //await PlaySucess();
+        StateHasChanged();
+    }
+
+
+     private async Task PrintLabels(int Id, string BOL)
+    {
+        isLoading = 1;
+        StateHasChanged(); 
+        try
+        {
+         
+            string filePathFromServer = await context.CreatePdfOnServer(Id, BOL);
+            if (!string.IsNullOrEmpty(filePathFromServer))
+            {
+  
+                await PrintingService.Print(filePathFromServer, true, PrintType.Pdf);
+               
+            }
+            else
+            {
+            }
+        }
+        catch (Exception ex)
+        {
+           
+        }
+        finally
+        {
+            isLoading = 0;
+            StateHasChanged(); 
+        }
+    }
+
+
+   
+}

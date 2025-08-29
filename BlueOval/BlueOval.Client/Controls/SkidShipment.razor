@@ -1,0 +1,120 @@
+﻿
+@using MudBlazor
+
+
+@inject DapperContextApi context;
+
+ 
+
+@if (PickingLoad == null)
+{
+   
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @if (PickingLoad.Count() > 0)
+    {
+              <MudText Typo="Typo.h5">Picking</MudText>
+
+        <MudTable Class="mx-2" Items="@PickingLoad" T="PickingLoadTransactions"
+                  Outlined="true" Elevation="1"
+                  Dense="true" Hover="true" Bordered="true" Striped="true">
+
+            <HeaderContent>
+                <MudTh>Route #</MudTh>
+                <MudTh>Skid #</MudTh>
+                <MudTh>Part #</MudTh>
+                <MudTh>Part Quantity</MudTh>
+                <MudTh>Location</MudTh>
+                <MudTh>Shipper</MudTh>
+                <MudTh>Operator</MudTh>
+                <MudTh>Date</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.RouteNumber</MudTd>
+                <MudTd>@context.SkidNo</MudTd>
+                <MudTd>@context.PartNumber</MudTd>
+                <MudTd>@context.PartQuantity</MudTd>
+                <MudTd>@context.LocationName</MudTd>
+                <MudTd>@context.ShipperNumber</MudTd>
+                <MudTd>@context.EmployeeName</MudTd>
+                <MudTd>@context.CreatedDate</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+        
+    }
+}
+
+
+@code {
+    private string message = "Not set";
+
+    private string skid { get; set; }="";
+
+    [Parameter]
+    public string SkidNumber { get; set; } = "";
+
+  
+  
+
+    private List<PickingLoadTransactions>? PickingLoad;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // We access WeatherForecastService using @Service
+        if (SkidNumber == "")
+            PickingLoad = new();
+        else
+            PickingLoad = await context.GetPickingLoadAsync(SkidNumber);
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        skid = SkidNumber;
+    }
+
+    protected override async void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if(skid != SkidNumber)
+        {
+            if (SkidNumber != "")
+                PickingLoad = await context.GetPickingLoadAsync(SkidNumber);
+            else
+                PickingLoad = new();
+
+            skid = SkidNumber;
+            StateHasChanged();
+        }
+    }
+
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        if (parameters.TryGetValue<string>(nameof(SkidNumber), out var value))
+        {
+            if (value is null)
+            {
+                message = "The value of 'Param' is null.";
+            }
+            else
+            {
+                message = $"The value of 'Param' is {value}.";
+            }
+        }
+        return base.SetParametersAsync(parameters);
+    }
+
+  
+
+    public PickingLoadTransactions? GetPickingLoadTransaction()
+    {
+        if (PickingLoad is not null && PickingLoad.Count != 0)
+            return PickingLoad[0];
+        else
+            return null;
+    }
+}

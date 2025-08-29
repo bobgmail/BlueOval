@@ -1,0 +1,27 @@
+﻿
+
+@using Microsoft.JSInterop  
+@inject IJSRuntime JS  
+@inject ClientIdService ClientIdService  
+
+@code {  
+    protected override async Task OnInitializedAsync()  
+    {  
+        // OnInitializedAsync runs only once per component instance.  
+        // For an interactive component, this will run client-side.  
+        // On the server, this component won't even be rendered interactively until the client connects.  
+
+        // This ensures that the JavaScript interop only occurs when the Blazor circuit is established  
+        // and the browser's JavaScript environment is ready.  
+        try  
+        {  
+            var clientId = await JS.InvokeAsync<string>("getOrCreateClientId");  
+            ClientIdService.SetClientId(clientId);  
+        }  
+        catch (Exception ex)  
+        {  
+            // Handle potential errors, e.g., if the circuit disconnects.  
+            Console.WriteLine($"Error getting client ID: {ex.Message}");  
+        }  
+    }  
+}
