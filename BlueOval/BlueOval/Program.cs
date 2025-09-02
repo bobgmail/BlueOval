@@ -2,7 +2,9 @@
 
 
 using BlueOval.Components;
+using BlueOval.Login;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.RateLimiting;
 using MudBlazor.Services;
@@ -65,7 +67,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.LoginPath = "/ToLogin";
         options.Cookie.Name = "BlueOvalPark";
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(120);
+        //options.ExpireTimeSpan = TimeSpan.FromMinutes(120);
         options.Events.OnRedirectToLogin = context =>
         {
             if (context.Request.Path.StartsWithSegments("/api"))
@@ -78,7 +80,18 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             }
             return Task.CompletedTask;
         };
+    })
+    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
+
+// Add Authorization and define a policy for both schemes
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("BasicApiPolicy", policy =>
+    {
+        policy.AddAuthenticationSchemes("BasicAuthentication");//, CookieAuthenticationDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
     });
+});
 
 // --- API and Swagger ---
 // This is required to discover the API endpoints

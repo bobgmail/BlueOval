@@ -1,8 +1,8 @@
-﻿using BlueOvalBatteryPark.SAPinterface.DataConverter;
+﻿using BlueOval.SAPinterface.DataConverter;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
-namespace BlueOvalBatteryPark.SAPinterface.S4Hearn;
+namespace BlueOval.SAPinterface.S4Hearn;
 
 //for interface with SAP: OutboundDelivery
 

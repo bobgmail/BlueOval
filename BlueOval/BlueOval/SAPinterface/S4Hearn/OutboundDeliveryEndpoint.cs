@@ -1,5 +1,5 @@
-﻿using BlueOvalBatteryPark.SAPinterface.ExceptionProc;
-using BlueOvalBatteryPark.SAPinterface.Validation;
+﻿using BlueOval.SAPinterface.Validation;
+using BlueOval.SAPinterface.ExceptionProc;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections;
@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Json;
 
-namespace BlueOvalBatteryPark.SAPinterface.S4Hearn;
+namespace BlueOval.SAPinterface.S4Hearn;
 
 public static class OutboundDeliveryEndpoint
 {

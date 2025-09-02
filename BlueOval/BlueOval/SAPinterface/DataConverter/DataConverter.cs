@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace BlueOvalBatteryPark.SAPinterface.DataConverter;
+namespace BlueOval.SAPinterface.DataConverter;
 
 public class StringToDoubleConverter : JsonConverter<double>
 {

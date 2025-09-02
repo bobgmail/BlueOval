@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 
-namespace BlueOvalBatteryPark.SAPinterface.ExceptionProc;
+namespace BlueOval.SAPinterface.ExceptionProc;
 
 public class DeserializationExceptionFilter : IEndpointFilter
 {

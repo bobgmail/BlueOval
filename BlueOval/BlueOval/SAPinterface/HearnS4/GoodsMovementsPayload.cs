@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace BlueOvalBatteryPark.SAPinterface.HearnS4;
+namespace BlueOval.SAPinterface.HearnS4;
 
 
 public class GoodsMovements

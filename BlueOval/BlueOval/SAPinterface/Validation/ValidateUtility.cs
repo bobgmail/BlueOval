@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Json;
 
-namespace BlueOvalBatteryPark.SAPinterface.Validation;
+namespace BlueOval.SAPinterface.Validation;
 
 public static class ValidateUtility
 {

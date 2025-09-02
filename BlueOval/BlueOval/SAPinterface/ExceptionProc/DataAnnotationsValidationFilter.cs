@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace BlueOvalBatteryPark.SAPinterface.ExceptionProc;
+namespace BlueOval.SAPinterface.ExceptionProc;
 
 // Create a validation filter
 public class DataAnnotationsValidationFilter : IEndpointFilter

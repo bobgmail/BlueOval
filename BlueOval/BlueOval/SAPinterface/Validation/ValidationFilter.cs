@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
 using System.ComponentModel.DataAnnotations;
 
-namespace BlueOvalBatteryPark.SAPinterface.Validation;
+namespace BlueOval.SAPinterface.Validation;
 
 public class ValidationFilterx<T> : IEndpointFilter where T : class
 {

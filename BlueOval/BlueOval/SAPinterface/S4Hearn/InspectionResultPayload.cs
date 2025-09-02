@@ -1,6 +1,7 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
-namespace BlueOvalBatteryPark.SAPinterface;
+namespace BlueOval.SAPinterface.S4Hearn;
 
 
 public class InspectionResultPayload
@@ -11,6 +12,7 @@ public class InspectionResultPayload
 
 public class InspectionLotUsageDecision
 {
+    [Required(AllowEmptyStrings = false, ErrorMessage = "Material is required")]
     [JsonPropertyName("Material")]
     public string Material { get; set; }
     [JsonPropertyName("Batch")]
@@ -19,6 +21,7 @@ public class InspectionLotUsageDecision
     public string BatchBySupplier { get; set; }
 
     //If InspectionLotUsageDecisionCode = “A1”, then the Lot Results is PASSED, Else Lot Result is FAILED
+    [Required(AllowEmptyStrings = false, ErrorMessage = "InspectionLotUsageDecisionCode is required")]
     [JsonPropertyName("InspectionLotUsageDecisionCode")]
     public string InspectionLotUsageDecisionCode { get; set; }
 }

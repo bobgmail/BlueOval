@@ -1,4 +1,4 @@
-﻿namespace BlueOvalBatteryPark.SAPinterface.ExceptionProc;
+﻿namespace BlueOval.SAPinterface.ExceptionProc;
 
 using Microsoft.AspNetCore.Diagnostics;
 

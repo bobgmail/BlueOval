@@ -1,4 +1,4 @@
-﻿namespace BlueOvalBatteryPark.SAPinterface;
+﻿namespace BlueOval.SAPinterface;
 
 //return result in JSON format
 

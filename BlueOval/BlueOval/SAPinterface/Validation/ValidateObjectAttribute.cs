@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.ComponentModel.DataAnnotations;
 
-namespace BlueOvalBatteryPark.SAPinterface.Validation;
+namespace BlueOval.SAPinterface.Validation;
 
 public class ValidateObjectAttribute : ValidationAttribute
 {

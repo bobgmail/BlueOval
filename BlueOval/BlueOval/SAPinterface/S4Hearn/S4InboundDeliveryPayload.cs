@@ -1,7 +1,7 @@
-﻿using BlueOvalBatteryPark.SAPinterface.HearnS4;
+﻿using BlueOval.SAPinterface.HearnS4;
 using System.Text.Json.Serialization;
 
-namespace BlueOvalBatteryPark.SAPinterface.S4Hearn;
+namespace BlueOval.SAPinterface.S4Hearn;
 
 
 public class S4InboundDeliveryPayload
