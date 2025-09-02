@@ -3,12 +3,17 @@
 
 using BlueOval.Components;
 using BlueOval.Login;
+using BlueOval.SAPinterface;
+using BlueOval.SAPinterface.ExceptionProc;
+using BlueOval.SAPinterface.S4Hearn;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MudBlazor.Services;
 using Scalar.AspNetCore;
+using System.Text.Json;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +37,7 @@ builder.Services.Configure<IISServerOptions>(options =>
 {
     options.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
 });
+
 builder.Services.AddRateLimiter(options =>
 {
     // Define a global rate limit for all endpoints.
@@ -124,7 +130,30 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddHttpContextAccessor();
+
+// 1.Configure JSON options to NOT throw exceptions (helps in some cases)
+builder.Services.Configure<JsonOptions>(options =>
+{
+    options.JsonSerializerOptions.AllowTrailingCommas = true;
+    options.JsonSerializerOptions.ReadCommentHandling = JsonCommentHandling.Skip;
+});
+
 var app = builder.Build();
+
+
+// 2.Critical Middleware - MUST be first in pipeline
+/**
+  To ensure malformed JSON returns a 400 Bad Request instead of a 500 Internal Server Error, you need to:
+   1) Intercept the raw request before model binding happens.
+   2) Manually validate the JSON using JsonDocument.ParseAsync().
+   3) Return a clean 400 response if parsing fails.
+ **/
+app.UseJsonMiddleware();
+
+
+//3) Map your endpoints last, after all exception handlers.
+app.MapOutboundDeliveryEndpoints();
+app.MapInspectionResultEndpoints();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -159,7 +188,7 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
-
+//app.UseStatusCodePagesWithReExecute("/notfound"); // Add this line
 
 //app.UseCors("AllowClient"); // Apply the CORS policy
 
@@ -168,11 +197,20 @@ app.UseCors(builder =>
         .AllowAnyOrigin()
         .AllowAnyMethod()
         .AllowAnyHeader());
+
 app.UseBlazorFrameworkFiles();
+
 app.UseRouting();
+
+// Custom exception handling for BadHttpRequestException  *******************
+// Call the custom exception handler extension method
+app.UseCustomExceptionHandler();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+
 // --- Map API Endpoints ---
 // Your login/logout/register logic moves to API controllers
 
